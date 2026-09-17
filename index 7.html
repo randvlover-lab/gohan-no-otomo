@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fffaf3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>ご飯のおとも</title>
+  <style>
+    :root{
+      --bg:#fffaf3;--card:#ffffff;--ink:#242424;--muted:#77716a;--line:#eee6dc;
+      --blue:#2f7df6;--blue-bg:#eaf2ff;--red:#ef5350;--red-bg:#fff0ef;
+      --accent:#1f1f1f;--shadow:0 8px 24px rgba(35,25,15,.07);--radius:18px;
+    }
+    *{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+    button,input,textarea,select{font:inherit} button{cursor:pointer}
+    .app{max-width:520px;margin:auto;min-height:100vh;padding-bottom:84px}
+    header{padding:22px 18px 10px;position:sticky;top:0;background:rgba(255,250,243,.94);backdrop-filter:blur(12px);z-index:10}
+    .brand{font-size:22px;font-weight:800;letter-spacing:.02em}.tagline{font-size:12px;color:var(--muted);margin-top:4px}
+    main{padding:8px 16px 24px}.screen{display:none}.screen.active{display:block}
+    .search{display:flex;gap:8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0 20px}
+    .search input{border:0;outline:0;width:100%;background:transparent}
+    h2{font-size:18px;margin:20px 2px 12px}.sub{font-size:12px;color:var(--muted)}
+    .chips{display:flex;gap:8px;overflow:auto;padding:2px 0 6px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+    .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;white-space:nowrap}
+    .area-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}.area-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.02)}
+    .area-card b{display:block;font-size:15px;margin-bottom:6px}.count{font-size:12px;color:var(--muted)}
+    .section-head{display:flex;align-items:center;justify-content:space-between;margin-top:18px}.ghost{border:0;background:transparent;color:var(--muted);padding:8px}
+    .restaurant{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:17px;padding:11px;margin:10px 0;box-shadow:var(--shadow);text-align:left;width:100%}
+    .thumb{width:86px;height:86px;border-radius:13px;object-fit:cover;background:#eee;flex:0 0 86px}.rinfo{min-width:0;flex:1}.rname{font-weight:750;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;color:var(--muted);line-height:1.5;margin-top:5px}
+    .badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;margin-bottom:7px}.want{color:var(--blue);background:var(--blue-bg)}.done{color:var(--red);background:var(--red-bg)}
+    .empty{padding:30px 10px;text-align:center;color:var(--muted)}
+    .toolbar{display:flex;gap:8px;margin:8px 0 14px}.toolbar select{flex:1;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px}
+    .back{border:0;background:transparent;padding:4px 0;color:var(--muted);margin-bottom:12px}
+    .hero{width:100%;height:220px;object-fit:cover;border-radius:22px;background:#eee}.detail-top{margin-top:14px}.detail-name{font-size:24px;font-weight:850;margin:8px 0}.detail-line{font-size:13px;color:var(--muted);margin:7px 0}
+    .price{font-size:15px;font-weight:700;margin-top:12px}.actions{display:flex;gap:9px;margin:16px 0}.btn{border:0;border-radius:13px;padding:12px 15px;font-weight:750}.primary{background:#222;color:#fff}.outline{background:#fff;border:1px solid var(--line)}
+    .status-row{display:flex;gap:9px}.status-btn{flex:1;border-radius:13px;padding:11px;border:1px solid var(--line);background:#fff;font-weight:750}.status-btn.selected.want{border-color:var(--blue);box-shadow:0 0 0 2px rgba(47,125,246,.12)}.status-btn.selected.done{border-color:var(--red);box-shadow:0 0 0 2px rgba(239,83,80,.12)}
+    .field{margin:12px 0}.field label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}.field input,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px;outline:0}.field textarea{min-height:90px;resize:vertical}
+    .stars{display:flex;gap:5px}.star{font-size:28px;border:0;background:transparent;padding:0;color:#cfc8c0}.star.on{color:#f4b400}
+    .bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(520px,100%);display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:9px 8px calc(9px + env(safe-area-inset-bottom));backdrop-filter:blur(12px);z-index:20}
+
+    .nav{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.1;min-width:0;width:100%;box-sizing:border-box}
+    .nav:not(.plus)::first-line{font-size:24px}
+    .nav span{font-size:10px}
+    .nav.plus{font-size:27px;min-height:50px}
+    .profile-card{display:flex;align-items:center;gap:13px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:var(--shadow)}
+    .profile-icon{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#fff4df;font-size:28px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0 22px}
+    .stats div{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px 8px;text-align:center}
+    .stats b{display:block;font-size:20px}.stats span{font-size:11px;color:var(--muted)}
+    .menu-list{display:grid;gap:9px}.menu-item{display:flex;align-items:center;gap:11px;width:100%;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px;text-align:left}
+    .menu-item>span:nth-child(2){flex:1}.menu-item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.menu-icon{width:35px;text-align:center;font-size:22px}
+    .nav{border:0;background:transparent;color:#8a837c;font-size:11px;padding:7px 3px}.nav.active{color:#222;font-weight:800}.plus{background:#222;color:#fff;border-radius:15px;font-size:20px;line-height:1}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;z-index:50}.modal.show{display:flex}.sheet{background:var(--bg);width:100%;max-width:520px;margin:auto;border-radius:24px 24px 0 0;padding:20px 17px 28px;max-height:88vh;overflow:auto}
+    .sheet-head{display:flex;justify-content:space-between;align-items:center}.close{border:0;background:#fff;border-radius:50%;width:34px;height:34px}.add-choice{display:grid;gap:10px;margin-top:16px}.choice{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.choice b{display:block;margin-bottom:4px}.choice span{font-size:12px;color:var(--muted)}
+    .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 15px;font-size:12px;opacity:0;pointer-events:none;transition:.25s;z-index:80}.toast.show{opacity:1}
+    .note{font-size:11px;color:var(--muted);line-height:1.6;background:#fff;border:1px dashed var(--line);padding:10px 12px;border-radius:12px;margin-top:10px}
+    .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}.import-status{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.spinner{width:15px;height:15px;border:2px solid #ddd;border-top-color:#222;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.meta-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0}.meta-card .meta-title{font-weight:750;font-size:14px}.meta-card img{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:9px}.candidate-note{font-size:11px;color:var(--muted);margin-top:5px}
+    @media(min-width:700px){body{padding:20px}.app{box-shadow:0 10px 40px rgba(0,0,0,.08);border-radius:28px;overflow:hidden;background:var(--bg)}header{position:relative}}
+  
+    .place-candidates{background:#fff;border:1px solid var(--line);border-radius:15px;padding:10px;margin:8px 0 14px}.place-candidates .pc-title{font-size:12px;color:var(--muted);margin-bottom:8px}.place-candidate{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;text-align:left;margin-top:7px}.place-candidate b{display:block;font-size:13px}.place-candidate span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.lookup-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><div class="brand">🍚 ご飯のおとも</div><div class="tagline">気になったお店を、忘れない。</div></header>
+
+  <main>
+    <section id="home" class="screen active">
+      <div class="search">🔍 <input id="homeSearch" placeholder="お店・エリアを検索"></div>
+      <div class="section-head"><h2>最近よく見るエリア</h2><button class="ghost" onclick="showAllAreas()">すべて</button></div>
+      <div id="chips" class="chips"></div>
+      <h2>すべてのエリア</h2><div id="areas" class="area-list"></div>
+      <div class="section-head"><h2>最近保存したお店</h2><button class="ghost" onclick="openArea('__all__')">すべて見る</button></div>
+      <div id="recent"></div>
+    </section>
+
+    <section id="area" class="screen">
+      <button class="back" onclick="goHome()">← ホーム</button>
+      <div class="section-head"><div><h2 id="areaTitle" style="margin:0"></h2><div id="areaCount" class="sub"></div></div><button class="ghost" onclick="toggleAreaToolbar()">⚙︎</button></div>
+      <div id="areaToolbar" class="toolbar" style="display:none">
+        <select id="statusFilter" onchange="renderArea()"><option value="all">すべて</option><option value="want">🔵 行きたい</option><option value="done">🔴 行った</option></select>
+        <select id="sortOrder" onchange="renderArea()"><option value="new">保存が新しい順</option><option value="old">保存が古い順</option><option value="near">近い順</option></select>
+      </div>
+      <div id="areaList"></div>
+    </section>
+
+    <section id="detail" class="screen">
+      <button class="back" onclick="goBackArea()">← 一覧に戻る</button>
+      <div id="detailBody"></div>
+    </section>
+
+
+    <section id="mypage" class="screen">
+      <h2 style="margin-top:6px">マイページ</h2>
+      <div class="profile-card">
+        <div class="profile-icon">🍚</div>
+        <div><b>ご飯のおとも</b><div class="sub">気になったお店を、忘れない。</div></div>
+      </div>
+      <div class="stats">
+        <div><b id="myWant">0</b><span>行きたい</span></div>
+        <div><b id="myDone">0</b><span>行った</span></div>
+        <div><b id="myTotal">0</b><span>登録店舗</span></div>
+      </div>
+      <h2>管理</h2>
+      <div class="menu-list">
+        <button class="menu-item" onclick="openArea('__all__')"><span class="menu-icon">🍽️</span><span><b>すべてのお店</b><small>登録したお店を一覧で見る</small></span><span>›</span></button>
+        <button class="menu-item" onclick="toast('MVPでは端末内にデータを保存しています')"><span class="menu-icon">💾</span><span><b>データについて</b><small>このMVPではブラウザ内に保存</small></span><span>›</span></button>
+        <button class="menu-item" onclick="openAdd()"><span class="menu-icon">＋</span><span><b>お店を追加</b><small>手動でお店を登録</small></span><span>›</span></button>
+      </div>
+      <div class="note">本番版ではここにプロフィール、バックアップ、共有設定などを追加できます。</div>
+    </section>
+
+    <section id="searchScreen" class="screen">
+      <h2 style="margin-top:6px">検索</h2>
+      <div class="search"><span>🔍</span><input id="searchInput" placeholder="店名・エリア・住所" oninput="renderSearch()"></div>
+      <div id="searchResults"></div>
+    </section>
+  </main>
+
+  <nav class="bottom">
+    <button class="nav active" data-screen="home" onclick="goHome()">⌂<span>ホーム</span></button>
+    <button class="nav" data-screen="searchScreen" onclick="showScreen('searchScreen');renderSearch()">🔍<span>検索</span></button>
+    <button class="nav plus" onclick="openAdd()">＋</button>
+    <button class="nav" onclick="openMap()">🗺️<span>地図</span></button>
+    <button class="nav" data-screen="mypage" onclick="openMyPage()">👤<span>マイページ</span></button>
+  </nav>
+</div>
+
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
+  <div class="sheet">
+    <div class="sheet-head"><h2 style="margin:0">お店を追加</h2><button class="close" onclick="closeModal()">×</button></div>
+    <div class="add-choice">
+      <button class="choice" onclick="openManual()"><b>✏️ 手動で追加</b><span>保存時に入力しても、あとから編集してもOK</span></button>
+      <button class="choice" onclick="shareFromThisApp()"><b>↗️ 共有する</b><span>SNSなどからの共有導線を体験するためのデモ</span></button>
+    </div>
+    <div id="manualForm" style="display:none;margin-top:12px">
+      <div class="field"><label>店名</label><input id="fName" placeholder="例：○○食堂"></div>
+      <div class="field"><label>エリア</label><input id="fArea" placeholder="例：天神"></div>
+      <div class="field"><label>住所</label><input id="fAddress" placeholder="例：福岡市中央区…"></div>
+      <div class="field"><label>営業時間</label><input id="fHours" placeholder="例：11:30〜22:00"></div>
+      <div class="field"><label>価格帯（自由入力）</label><input id="fPrice" placeholder="例：1,000〜2,000円"></div>
+      <div class="field"><label>元URL</label><input id="fUrl" placeholder="https://…"></div>
+      <button class="btn primary" style="width:100%" onclick="saveManual()">保存する</button>
+      <div class="note">本番版では、SNSから共有された投稿URL・本文などを受け取り、店名・住所・営業時間などを自動抽出する想定です。</div>
+    </div>
+  </div>
+</div>
+<div id="shareImportModal" class="modal" onclick="if(event.target===this)closeShareImport()">
+  <div class="sheet">
+    <div class="sheet-head"><h2 style="margin:0">共有から追加</h2><button class="close" onclick="closeShareImport()">×</button></div>
+    <div id="importStatus" class="import-status"><span class="spinner"></span><span>TikTokの投稿情報を確認中…</span></div>
+    <div class="auto-note">共有されたURLから拾える情報を自動で入れます。足りない項目は空欄のまま保存して、あとから追加できます。</div>
+    <div id="metaCard" class="meta-card" style="display:none"></div>
+    <div class="share-preview"><div class="label">共有元</div><b id="shareTitle">共有された投稿</b><div class="meta" id="shareText"></div><div class="url" id="shareUrl"></div></div>
+    <div class="field"><label>店名 <span class="candidate-note" id="nameCandidateNote"></span></label><input id="importName" placeholder="店名（未設定でも保存できます）"></div>
+    <div class="field"><label>住所</label><input id="importAddress" placeholder="自動取得できた場合に入ります"></div>
+    <div id="placeCandidates" class="place-candidates" style="display:none"></div>
+    <div class="field"><label>営業時間</label><input id="importHours" placeholder="自動取得できた場合に入ります"></div>
+    <div class="field"><label>価格帯（自由入力）</label><input id="importPrice" placeholder="例：1,000〜2,000円"></div>
+    <div class="field"><label>元URL</label><input id="importUrl" placeholder="https://…"></div>
+    <div class="field"><label>メモ（共有本文・投稿タイトル）</label><textarea id="importMemo" placeholder="あとで編集できます"></textarea></div>
+    <div class="import-actions"><button class="btn outline" onclick="closeShareImport()">あとで追加</button><button class="btn primary" onclick="saveShared()">🔵 行きたいで保存</button></div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const seed=[
+ {id:1,name:"うどん平",area:"博多",address:"福岡市博多区博多駅前3-17-10",hours:"11:30〜15:00 / 17:30〜21:00",price:"800〜1,500円",genre:"うどん",status:"want",rating:0,memo:"肉ごぼううどん気になる",saved:Date.now()-1000*60*40,img:"https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=500&q=80"},
+ {id:2,name:"食堂 光",area:"天神",address:"福岡市中央区今泉1-12-23",hours:"11:00〜22:00",price:"1,000〜2,000円",genre:"定食",status:"want",rating:0,memo:"SNSで見つけた",saved:Date.now()-1000*60*90,img:"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=500&q=80"},
+ {id:3,name:"焼鳥 とり乃",area:"天神",address:"福岡市中央区天神2-4-20",hours:"17:00〜24:00",price:"3,000〜5,000円",genre:"焼鳥",status:"done",rating:5,memo:"また行きたい。",saved:Date.now()-1000*60*60*18,img:"https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=500&q=80"},
+ {id:4,name:"薬院カレー研究所",area:"薬院",address:"福岡市中央区薬院2-8-5",hours:"11:30〜20:00",price:"1,000円前後",genre:"カレー",status:"want",rating:0,memo:"",saved:Date.now()-1000*60*60*25,img:"https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=500&q=80"},
+ {id:5,name:"炉端 いと",area:"大名",address:"福岡市中央区大名1-9-12",hours:"18:00〜23:00",price:"5,000〜8,000円",genre:"居酒屋",status:"want",rating:0,memo:"デート候補",saved:Date.now()-1000*60*60*42,img:"https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=500&q=80"},
+];
+let restaurants=JSON.parse(localStorage.getItem("gohanRestaurants")||"null")||seed;
+let currentArea="__all__", currentId=null, previousArea="__all__";
+
+function save(){localStorage.setItem("gohanRestaurants",JSON.stringify(restaurants))}
+function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function showScreen(id){document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.screen===id))}
+function goHome(){currentArea="__all__";showScreen("home");renderHome()}
+function openMyPage(){showScreen("mypage");renderMyPage()}
+function renderMyPage(){
+ document.getElementById("myWant").textContent=restaurants.filter(r=>r.status==="want").length;
+ document.getElementById("myDone").textContent=restaurants.filter(r=>r.status==="done").length;
+ document.getElementById("myTotal").textContent=restaurants.length;
+}
+function showAllAreas(){goHome();document.getElementById("areas").scrollIntoView({behavior:"smooth"})}
+function areas(){return [...new Set(restaurants.map(r=>r.area).filter(Boolean))].sort()}
+function renderHome(){
+ const ar=areas();
+ document.getElementById("chips").innerHTML=ar.map(a=>`<button class="chip" onclick="openArea('${esc(a)}')">${esc(a)}</button>`).join("");
+ document.getElementById("areas").innerHTML=ar.map(a=>{let rs=restaurants.filter(r=>r.area===a);return `<button class="area-card" onclick="openArea('${esc(a)}')"><b>${esc(a)}</b><span class="count">🔵 ${rs.filter(r=>r.status==="want").length}　🔴 ${rs.filter(r=>r.status==="done").length}</span></button>`}).join("");
+ document.getElementById("recent").innerHTML=[...restaurants].sort((a,b)=>b.saved-a.saved).slice(0,3).map(card).join("")||'<div class="empty">まだお店がありません。<br>＋から追加してみよう。</div>';
+}
+function card(r){return `<button class="restaurant" onclick="openDetail(${r.id})"><img class="thumb" src="${esc(r.img||placeholder())}" onerror="this.src='${placeholder()}'"><div class="rinfo"><span class="badge ${r.status==="want"?"want":"done"}">${r.status==="want"?"🔵 行きたい":"🔴 行った"}</span><div class="rname">${esc(r.name||"店名未設定")}</div><div class="meta">📍 ${esc(r.address||r.area||"住所未設定")}<br>🕐 ${esc(r.hours||"営業時間未設定")}<br>💰 ${esc(r.price||"価格帯未設定")}</div></div></button>`}
+function placeholder(){return "data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><rect width="100%" height="100%" fill="#eee6dc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#999" font-size="28">ご飯のおとも</text></svg>`)}
+function openArea(area){previousArea=currentArea;currentArea=area;document.getElementById("areaTitle").textContent=area==="__all__"?"すべてのお店":area;document.getElementById("statusFilter").value="all";document.getElementById("sortOrder").value="new";showScreen("area");renderArea()}
+function toggleAreaToolbar(){let e=document.getElementById("areaToolbar");e.style.display=e.style.display==="none"?"flex":"none"}
+function renderArea(){
+ let rs=restaurants.filter(r=>currentArea==="__all__"||r.area===currentArea);
+ const f=document.getElementById("statusFilter").value,s=document.getElementById("sortOrder").value;
+ if(f!=="all")rs=rs.filter(r=>r.status===f);
+ if(s==="new")rs.sort((a,b)=>b.saved-a.saved); if(s==="old")rs.sort((a,b)=>a.saved-b.saved);
+ document.getElementById("areaCount").textContent=`${rs.length}件`;
+ document.getElementById("areaList").innerHTML=rs.map(card).join("")||'<div class="empty">この条件のお店はありません。</div>';
+}
+function openDetail(id){currentId=id;previousArea=currentArea;showScreen("detail");renderDetail()}
+function goBackArea(){openArea(previousArea)}
+function renderDetail(){
+ const r=restaurants.find(x=>x.id===currentId); if(!r)return;
+ document.getElementById("detailBody").innerHTML=`
+ <img class="hero" src="${esc(r.img||placeholder())}" onerror="this.src='${placeholder()}'">
+ <div class="detail-top"><span class="badge ${r.status==="want"?"want":"done"}">${r.status==="want"?"🔵 行きたい":"🔴 行った"}</span>
+ <div class="detail-name">${esc(r.name||"店名未設定")}</div>
+ <div class="detail-line">📍 ${esc(r.address||"住所未設定")}</div>
+ <div class="detail-line">🕐 ${esc(r.hours||"営業時間未設定")}</div>
+ <div class="price">💰 ${esc(r.price||"価格帯を追加 ＋")}</div>
+ <div class="actions"><button class="btn primary" onclick="maps('${esc((r.name||'')+' '+(r.address||''))}')">地図で見る</button><button class="btn outline" onclick="editPrice()">価格を編集</button></div>
+ <div class="status-row"><button class="status-btn ${r.status==='want'?'selected want':''}" onclick="setStatus('want')">🔵 行きたい</button><button class="status-btn ${r.status==='done'?'selected done':''}" onclick="setStatus('done')">🔴 行った</button></div>
+ <div class="field"><label>評価</label><div class="stars">${[1,2,3,4,5].map(n=>`<button class="star ${r.rating>=n?'on':''}" onclick="setRating(${n})">★</button>`).join("")}</div></div>
+ <div class="field"><label>自分のメモ</label><textarea id="memo">${esc(r.memo||"")}</textarea></div>
+ <button class="btn primary" style="width:100%" onclick="saveMemo()">変更を保存</button>
+ <button class="ghost" style="width:100%;margin-top:10px" onclick="deleteCurrent()">このお店を削除</button>
+ </div>`;
+}
+function setStatus(s){restaurants.find(r=>r.id===currentId).status=s;save();renderDetail();renderHome()}
+function setRating(n){restaurants.find(r=>r.id===currentId).rating=n;save();renderDetail()}
+function saveMemo(){restaurants.find(r=>r.id===currentId).memo=document.getElementById("memo").value;save();toast("保存しました")}
+function editPrice(){const r=restaurants.find(x=>x.id===currentId);const v=prompt("価格帯を自由入力",r.price||"");if(v!==null){r.price=v;save();renderDetail();}}
+function deleteCurrent(){if(!confirm("このお店を削除しますか？"))return;restaurants=restaurants.filter(r=>r.id!==currentId);save();toast("削除しました");goBackArea()}
+function maps(q){window.open("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q),"_blank")}
+function openMap(){const q=restaurants.filter(r=>r.address).map(r=>r.name+" "+r.address).slice(0,1)[0]; if(q)maps(q);else toast("住所のあるお店を追加してね")}
+function openAdd(){document.getElementById("modal").classList.add("show");document.getElementById("manualForm").style.display="none"}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function openManual(){document.getElementById("manualForm").style.display="block"}
+async function shareFromThisApp(){
+ const data={title:"ご飯のおとも",text:"気になったお店を、ご飯のおともに保存してみよう！"};
+ try{if(navigator.share && (!navigator.canShare || navigator.canShare(data))){await navigator.share(data);toast("共有画面を開きました")}else{await navigator.clipboard?.writeText(location.href);toast("共有非対応。URLをコピーしました")}}catch(e){}
+}
+function saveManual(){
+ const r={id:Date.now(),name:val("fName"),area:val("fArea")||"未分類",address:val("fAddress"),hours:val("fHours"),price:val("fPrice"),genre:"",status:"want",rating:0,memo:"",saved:Date.now(),img:""};
+ if(!r.name){toast("店名を入れてね");return}
+ restaurants.unshift(r);save();closeModal();clearForm();toast("🔵 行きたい に保存しました");renderHome()
+}
+function clearForm(){["fName","fArea","fAddress","fHours","fPrice","fUrl"].forEach(id=>document.getElementById(id).value="")}
+function val(id){return document.getElementById(id).value.trim()}
+function renderSearch(){
+ const q=document.getElementById("searchInput").value.trim().toLowerCase();
+ const rs=!q?[]:restaurants.filter(r=>[r.name,r.area,r.address,r.genre,r.price].join(" ").toLowerCase().includes(q));
+ document.getElementById("searchResults").innerHTML=q?rs.map(card).join(""):'<div class="empty">店名・エリア・住所から探せます。</div>';
+}
+function toast(t){const e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
+document.getElementById("homeSearch").addEventListener("input",e=>{const q=e.target.value.trim().toLowerCase();if(q){showScreen("searchScreen");document.getElementById("searchInput").value=q;renderSearch()}})
+renderHome();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+
+/* Share Target: Shortcut / installed PWA may open with ?title=&text=&url= */
+function isTikTokUrl(url=""){
+  try{return /(^|\.)tiktok\.com$/i.test(new URL(url).hostname) || /(^|\.)vm\.tiktok\.com$/i.test(new URL(url).hostname)}catch(e){return false}
+}
+function cleanCandidateTitle(title=""){
+  let raw=String(title).replace(/\r/g,"").trim();
+  if(!raw) return "";
+  // First prefer explicit labels often used in food-introduction posts.
+  const labeled=raw.match(/(?:店名|店舗名|お店|店)\s*[:：]\s*[「『【]?([^\n|｜」』】]{2,60})/i);
+  if(labeled) return normalizeStoreName(labeled[1]);
+  // Quoted Japanese store names are a strong signal.
+  const quoted=raw.match(/[「『【]\s*([^」』】]{2,50})\s*[」』】]/);
+  if(quoted) return normalizeStoreName(quoted[1]);
+  // If the title has separators, inspect each segment instead of blindly taking the first one.
+  const parts=raw.split(/\n|\r|[|｜]/).map(x=>x.trim()).filter(Boolean);
+  const candidates=[...parts, raw];
+  for(const part of candidates){
+    let t=part.replace(/#[^\s#]+/g,"").replace(/\s+/g," ").trim();
+    // Remove common editorial lead-ins while keeping the actual shop name.
+    t=t.replace(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:で|の)?(?:おすすめ|人気|話題|絶対行きたい|行ってほしい|行ってみてほしい|必見)の?(?:ランチ|ディナー|お店|店|グルメ|ご飯|食堂)?\s*/i,"");
+    t=t.replace(/^(?:福岡|博多|天神|薬院|大名|中洲)\s*(?:ランチ|グルメ|ご飯|お店)\s*/i,"");
+    t=t.replace(/^(?:\d+選|\d+選まとめ|まとめ)\s*/i,"").trim();
+    t=normalizeStoreName(t);
+    if(isLikelyStoreName(t)) return t;
+  }
+  return "";
+}
+function normalizeStoreName(name=""){
+  return String(name).replace(/^[「『【\s]+|[」』】\s]+$/g,"").replace(/\s+/g," ").trim();
+}
+function isLikelyStoreName(t=""){
+  if(!t || t.length<2 || t.length>60) return false;
+  if(/https?:\/\//i.test(t)) return false;
+  if(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:おすすめ|人気|話題|絶対|行ってほしい|行きたい|ランチ|ディナー|グルメ|お店|店舗|食べ歩き|まとめ|紹介)/i.test(t)) return false;
+  // A shop-like suffix is a useful signal, but do not require it.
+  if(/[屋店堂亭房館家庵麺鮨寿司食堂]/.test(t)) return true;
+  // Short titles without obvious editorial wording are still useful candidates.
+  return t.length<=28 && !/[!?！？。、,:：]/.test(t);
+}
+function extractFields(text=""){
+  const t=String(text).replace(/\r/g,"");
+  const address=(t.match(/(?:北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)[^\n]{2,45}(?:市|区|町|村)[^\n]{0,35}/)||t.match(/(?:東京都|大阪府|京都府|北海道|福岡県|.+県)[^\n]{2,60}/));
+  const hours=(t.match(/(?:営業時間|営業)\s*[:：]?\s*([^\n]{3,40}(?:\d{1,2}[:：]\d{2}|\d{1,2}時)[^\n]{0,25})/i)||t.match(/\d{1,2}[:：]\d{2}\s*[〜～-]\s*\d{1,2}[:：]\d{2}/));
+  const price=(t.match(/(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?|\d+)[\s〜～-]+(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?)(?:円)?/)||t.match(/\d{1,3}(?:,\d{3})?円(?:前後|〜)?/));
+  return {address:address?address[0].trim():"",hours:hours?hours[0].trim():"",price:price?price[0].trim():""};
+}
+function setImportStatus(text, loading=false){
+ const e=document.getElementById("importStatus");
+ e.innerHTML=(loading?'<span class="spinner"></span>':'<span>✓</span>')+`<span>${esc(text)}</span>`;
+}
+async function fetchTikTokOembed(url){
+ const endpoint="https://www.tiktok.com/oembed?url="+encodeURIComponent(url);
+ const res=await fetch(endpoint,{method:"GET"});
+ if(!res.ok) throw new Error("oEmbed HTTP "+res.status);
+ return await res.json();
+}
+async function lookupPlaceByAddress(address){
+  if(!address) return [];
+  // OpenStreetMap Nominatim: address -> nearby named place candidates.
+  // This is a best-effort public lookup; it does not require a user API key.
+  const endpoint="https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=jp&q="+encodeURIComponent(address);
+  const res=await fetch(endpoint,{headers:{"Accept":"application/json"}});
+  if(!res.ok) throw new Error("place lookup HTTP "+res.status);
+  const data=await res.json();
+  return (Array.isArray(data)?data:[]).filter(x=>x.name || x.display_name).map(x=>({
+    name:(x.name||"").trim(), display:(x.display_name||"").trim(), type:x.type||"", category:x.category||""
+  })).filter(x=>x.name && !/^(日本|Japan|福岡県|福岡市|中央区|博多区)/.test(x.name));
+}
+function showPlaceCandidates(candidates,address){
+  const box=document.getElementById("placeCandidates");
+  if(!box) return;
+  if(!candidates.length){box.style.display="none";return;}
+  box.innerHTML=`<div class="pc-title">📍 住所から見つかった店舗候補（タップで店名に設定）</div>`+
+    candidates.slice(0,5).map((c,i)=>`<button class="place-candidate" onclick="selectPlaceCandidate(${i})"><div><b>${esc(c.name)}</b><span>${esc(c.display)}</span></div></button>`).join("")+
+    `<div class="lookup-note">候補は地図データをもとにした参考情報です。違う場合は店名を直接修正できます。</div>`;
+  box.style.display="block";
+  window.__placeCandidates=candidates;
+}
+function selectPlaceCandidate(i){
+  const c=window.__placeCandidates?.[i]; if(!c) return;
+  document.getElementById("importName").value=c.name;
+  document.getElementById("nameCandidateNote").textContent="（住所から候補を選択）";
+  toast("店名を設定しました");
+}
+async function enrichSharedData(url, text, initialTitle){
+ const combined=[initialTitle,text].filter(Boolean).join("\n");
+ let fields=extractFields(combined);
+ let title=initialTitle||"";
+ let meta=null;
+ if(isTikTokUrl(url)){
+   try{
+     meta=await fetchTikTokOembed(url);
+     const oTitle=meta?.title||"";
+     title=oTitle||title;
+     const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
+     fields=extractFields(extra);
+     const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"));
+     if(candidate) document.getElementById("importName").value=candidate;
+     if(meta?.thumbnail_url){
+       document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
+       document.getElementById("metaCard").style.display="block";
+     }
+     document.getElementById("nameCandidateNote").textContent=candidate?"（TikTokタイトルから候補を自動入力）":"";
+     setImportStatus("TikTokの投稿情報を取得しました");
+   }catch(e){ setImportStatus("TikTokの投稿情報は取得できませんでした。URLはそのまま保存できます"); }
+ }else{
+   setImportStatus("共有された情報を読み込みました",false);
+ }
+ if(title && !document.getElementById("importName").value) {
+   const candidate=cleanCandidateTitle(title);
+   if(candidate){document.getElementById("importName").value=candidate;document.getElementById("nameCandidateNote").textContent="（投稿タイトルから候補を自動入力）";}
+ }
+ if(fields.address) document.getElementById("importAddress").value=fields.address;
+ if(fields.hours) document.getElementById("importHours").value=fields.hours;
+ if(fields.price) document.getElementById("importPrice").value=fields.price;
+ if(!document.getElementById("importMemo").value) document.getElementById("importMemo").value=combined;
+ // New v7 step: use the successfully extracted address to find a named place.
+ const address=document.getElementById("importAddress").value.trim();
+ if(address){
+   try{
+     const candidates=await lookupPlaceByAddress(address);
+     if(candidates.length){
+       const current=document.getElementById("importName").value.trim();
+       // Prefer a place candidate when no reliable name came from TikTok.
+       if(!current || current==="店名未設定"){
+         showPlaceCandidates(candidates,address);
+         setImportStatus("住所から店舗候補を見つけました");
+       } else {
+         showPlaceCandidates(candidates,address);
+         setImportStatus("店舗名と住所を確認しました");
+       }
+     } else {
+       setImportStatus("住所は取得できました。店舗名の候補は見つかりませんでした");
+     }
+   }catch(e){
+     setImportStatus("住所は取得できました。店舗名の自動照合は利用できませんでした");
+   }
+ }
+}
+function receiveSharedData(){
+ const params=new URLSearchParams(location.search);
+ const title=params.get("title")||""; const text=params.get("text")||""; const url=params.get("url")||"";
+ if(!(title||text||url)) return;
+ setTimeout(async()=>{
+   document.getElementById("shareTitle").textContent=title||"共有された投稿";
+   document.getElementById("shareText").textContent=text||"本文は取得されませんでした";
+   document.getElementById("shareUrl").textContent=url||"URLなし";
+   document.getElementById("importName").value="";
+   document.getElementById("importAddress").value="";
+   document.getElementById("importHours").value="";
+   document.getElementById("importPrice").value="";
+   document.getElementById("importUrl").value=url||"";
+   document.getElementById("importMemo").value=text||title||"";
+   document.getElementById("metaCard").style.display="none";
+   document.getElementById("nameCandidateNote").textContent="";
+   document.getElementById("placeCandidates").style.display="none";
+   document.getElementById("placeCandidates").innerHTML="";
+   window.__placeCandidates=[];
+   setImportStatus("共有されたURLを確認中…",true);
+   document.getElementById("shareImportModal").classList.add("show");
+   await enrichSharedData(url,text,title);
+ },200);
+}
+function closeShareImport(){document.getElementById("shareImportModal").classList.remove("show");history.replaceState({},"",location.pathname)}
+function saveShared(){
+ const name=document.getElementById("importName").value.trim()||"店名未設定";
+ const url=document.getElementById("importUrl").value.trim();
+ const memo=document.getElementById("importMemo").value.trim();
+ const r={id:Date.now(),name,area:"未分類",address:document.getElementById("importAddress").value.trim(),hours:document.getElementById("importHours").value.trim(),price:document.getElementById("importPrice").value.trim(),genre:"",status:"want",rating:0,memo,saved:Date.now(),img:document.querySelector("#metaCard img")?.src||"",url};
+ restaurants.unshift(r);save();closeShareImport();renderHome();toast("🔵 行きたい に保存しました");
+}
+receiveSharedData();
+</script>
+</body>
+</html>
