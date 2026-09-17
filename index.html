@@ -58,8 +58,6 @@
     .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 15px;font-size:12px;opacity:0;pointer-events:none;transition:.25s;z-index:80}.toast.show{opacity:1}
     .note{font-size:11px;color:var(--muted);line-height:1.6;background:#fff;border:1px dashed var(--line);padding:10px 12px;border-radius:12px;margin-top:10px}
     .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}.import-status{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.spinner{width:15px;height:15px;border:2px solid #ddd;border-top-color:#222;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.meta-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0}.meta-card .meta-title{font-weight:750;font-size:14px}.meta-card img{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:9px}.candidate-note{font-size:11px;color:var(--muted);margin-top:5px}
-
-    .debug-panel{background:#1f1f1f;color:#f5f5f5;border-radius:15px;padding:12px;margin-top:10px;font-size:11px;line-height:1.55;overflow:auto;max-height:420px}.debug-panel .dbg-title{font-weight:800;font-size:12px;margin:8px 0 4px}.debug-panel pre{white-space:pre-wrap;word-break:break-word;margin:0;color:#f5f5f5}.debug-panel .ok{color:#b8f0c2}.debug-panel .warn{color:#ffd38a}
     @media(min-width:700px){body{padding:20px}.app{box-shadow:0 10px 40px rgba(0,0,0,.08);border-radius:28px;overflow:hidden;background:var(--bg)}header{position:relative}}
   
     .place-candidates{background:#fff;border:1px solid var(--line);border-radius:15px;padding:10px;margin:8px 0 14px}.place-candidates .pc-title{font-size:12px;color:var(--muted);margin-bottom:8px}.place-candidate{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;text-align:left;margin-top:7px}.place-candidate b{display:block;font-size:13px}.place-candidate span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.lookup-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
@@ -165,8 +163,6 @@
     <div class="field"><label>元URL</label><input id="importUrl" placeholder="https://…"></div>
     <div class="field"><label>メモ（共有本文・投稿タイトル）</label><textarea id="importMemo" placeholder="あとで編集できます"></textarea></div>
     <div class="import-actions"><button class="btn outline" onclick="closeShareImport()">あとで追加</button><button class="btn primary" onclick="saveShared()">🔵 行きたいで保存</button></div>
-    <button class="ghost" style="width:100%;margin-top:10px" onclick="toggleDebugPanel()">🔧 取得データを確認</button>
-    <div id="debugPanel" class="debug-panel" style="display:none"></div>
   </div>
 </div>
 <div id="toast" class="toast"></div>
@@ -445,13 +441,9 @@ function selectPlaceCandidate(i){
   document.getElementById("nameCandidateNote").textContent="（住所から候補を選択）";
   toast("店名を設定しました");
 }
-window.__debugData={};
-function toggleDebugPanel(){const e=document.getElementById("debugPanel");e.style.display=e.style.display==="none"?"block":"none";renderDebugPanel()}
-function renderDebugPanel(){const d=window.__debugData||{};const e=document.getElementById("debugPanel");if(!e)return; const section=(t,v,cls="")=>`<div class="dbg-title">${esc(t)}</div><pre class="${cls}">${esc(v==null?"":typeof v==="string"?v:JSON.stringify(v,null,2))}</pre>`; e.innerHTML=section("① 共有シートから届いたタイトル",d.inputTitle||"（なし）",d.inputTitle?"ok":"warn")+section("② 共有シートから届いた本文",d.inputText||"（なし）",d.inputText?"ok":"warn")+section("③ 共有されたURL",d.inputUrl||"（なし）",d.inputUrl?"ok":"warn")+section("④ TikTok oEmbedのタイトル",d.oembedTitle||"（なし）",d.oembedTitle?"ok":"warn")+section("⑤ TikTok oEmbedの説明/作者など",d.oembedExtra||"（なし）")+section("⑥ 解析に使った全文",d.combined||"（なし）")+section("⑦ 抽出結果（住所・営業時間・価格）",d.fields||{})+section("⑧ 店名候補",d.nameCandidate||"（なし）",d.nameCandidate?"ok":"warn")+section("⑨ 住所から取得した店舗候補",d.placeCandidates||[])}
 async function enrichSharedData(url, text, initialTitle){
  const combined=[initialTitle,text].filter(Boolean).join("\n");
- window.__debugData={inputTitle:initialTitle||"",inputText:text||"",inputUrl:url||"",combined,fields:{},oembedTitle:"",oembedExtra:"",nameCandidate:"",placeCandidates:[]};
- let fields=extractFields(combined); window.__debugData.fields=fields; renderDebugPanel();
+ let fields=extractFields(combined);
  let title=initialTitle||"";
  let meta=null;
  if(isTikTokUrl(url)){
@@ -460,11 +452,9 @@ async function enrichSharedData(url, text, initialTitle){
      const oTitle=meta?.title||"";
      title=oTitle||title;
      const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
-     window.__debugData.oembedTitle=oTitle||""; window.__debugData.oembedExtra={author_name:meta?.author_name||"",author_url:meta?.author_url||"",thumbnail_url:meta?.thumbnail_url||"",html:meta?.html?"（embed HTMLあり）":""};
-     window.__debugData.combined=extra;
-     fields=extractFields(extra); window.__debugData.fields=fields; renderDebugPanel();
+     fields=extractFields(extra);
      const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), false) || cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), true);
-     if(candidate) document.getElementById("importName").value=candidate; window.__debugData.nameCandidate=candidate||""; renderDebugPanel();
+     if(candidate) document.getElementById("importName").value=candidate;
      if(meta?.thumbnail_url){
        document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
        document.getElementById("metaCard").style.display="block";
@@ -488,7 +478,6 @@ async function enrichSharedData(url, text, initialTitle){
  if(address){
    try{
      const candidates=await lookupPlaceByAddress(address);
-     window.__debugData.placeCandidates=candidates; renderDebugPanel();
      if(candidates.length){
        const current=document.getElementById("importName").value.trim();
        // Prefer a place candidate when no reliable name came from TikTok.
@@ -526,7 +515,6 @@ function receiveSharedData(){
    document.getElementById("placeCandidates").style.display="none";
    document.getElementById("placeCandidates").innerHTML="";
    window.__placeCandidates=[];
-   window.__debugData={inputTitle:title,inputText:text,inputUrl:url,combined:"",fields:{},oembedTitle:"",oembedExtra:"",nameCandidate:"",placeCandidates:[]}; renderDebugPanel();
    setImportStatus("共有されたURLを確認中…",true);
    document.getElementById("shareImportModal").classList.add("show");
    await enrichSharedData(url,text,title);
@@ -542,190 +530,5 @@ function saveShared(){
 }
 receiveSharedData();
 </script>
-
-<script>
-/*
- v11 extraction:
- - Treat labeled sections as blocks, stopping at the next recognized label.
- - Preserve multi-line / weekday-specific business hours.
- - Keep access separate from address.
- - Keep budget/price separate from hours.
-*/
-(function () {
-  const LABELS = [
-    "店舗名","店名","店舗情報","お店情報","基本情報",
-    "住所","所在地","アクセス","行き方","交通アクセス",
-    "営業時間","営業日時","営業時間帯","営業",
-    "定休日","休業日",
-    "予算","価格帯","価格","料金","平均予算"
-  ];
-
-  const stopRe = new RegExp(
-    "^\\s*(?:" + LABELS.map(s => s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|") + ")\\s*[:：]?\\s*$",
-    "i"
-  );
-
-  function normalizeLines(text) {
-    return String(text || "")
-      .replace(/\r/g, "\n")
-      .replace(/[ \t]+/g, " ")
-      .split("\n")
-      .map(s => s.trim())
-      .filter(Boolean);
-  }
-
-  function labelBlock(lines, labelNames) {
-    const names = new Set(labelNames);
-    for (let i=0;i<lines.length;i++) {
-      const m = lines[i].match(/^(.+?)\s*[:：]\s*(.*)$/);
-      if (m && names.has(m[1].trim())) {
-        const first = m[2].trim();
-        const vals = first ? [first] : [];
-        for (let j=i+1;j<lines.length;j++) {
-          if (stopRe.test(lines[j])) break;
-          vals.push(lines[j]);
-        }
-        return vals.join("\n").trim();
-      }
-      if (names.has(lines[i])) {
-        const vals=[];
-        for (let j=i+1;j<lines.length;j++) {
-          if (stopRe.test(lines[j])) break;
-          vals.push(lines[j]);
-        }
-        return vals.join("\n").trim();
-      }
-    }
-    return "";
-  }
-
-  function cleanAddress(v) {
-    if (!v) return "";
-
-    // 住所と次項目が同じ行に続くケースを切り分ける。
-    // 例: 「...プリンスビル ・アクセス：天神駅から徒歩1〜2分」
-    //     「...105 ［営業時間］11:00〜」
-    const inlineNextField = /(?:\s*[・•]\s*)?(?:［\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*］|\[\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*\]|(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*[:：])/i;
-
-    return v.split("\n")
-      .map(line => {
-        const m = line.match(inlineNextField);
-        return m ? line.slice(0, m.index).trim() : line.trim();
-      })
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-  }
-
-  function cleanHours(v) {
-    if (!v) return "";
-    return v.split("\n")
-      .filter(x => !/^(定休日|予算|価格帯|価格|料金|平均予算|住所|所在地|アクセス|行き方)\s*[:：]?$/i.test(x))
-      .join("\n").trim();
-  }
-
-  function normalizePrice(v) {
-    if (!v) return "";
-    const s = v.replace(/，/g,",").replace(/〜/g,"-").replace(/～/g,"-").replace(/[円¥￥]/g,"").trim();
-    const m = s.match(/(\d[\d,]*)\s*-\s*(\d[\d,]*)/);
-    if (m) return `${m[1].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}〜${m[2].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}円`;
-    const single = s.match(/(\d[\d,]*)/);
-    if (single) return `${single[1].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}円前後`;
-    return v.trim();
-  }
-
-  // Expose for the existing importer to use when available.
-  window.gohanV11Extract = function(rawText) {
-    const lines = normalizeLines(rawText);
-    const result = {
-      name: labelBlock(lines, ["店舗名","店名"]),
-      address: cleanAddress(labelBlock(lines, ["住所","所在地"])),
-      access: labelBlock(lines, ["アクセス","行き方","交通アクセス"]),
-      hours: cleanHours(labelBlock(lines, ["営業時間","営業日時","営業時間帯","営業"])),
-      price: normalizePrice(labelBlock(lines, ["予算","価格帯","価格","料金","平均予算"]))
-    };
-    // Never treat section headings as a store name.
-    if (/^(店舗情報|お店情報|基本情報)$/.test(result.name)) result.name = "";
-    return result;
-  };
-})();
-</script>
-
-
-<script>
-/* v13: final address sanitizer
-   Applied at the final data boundary so inline "アクセス/営業時間/予算..."
-   cannot remain attached to the stored address. */
-(function () {
-  const nextField = /(?:\s*[・•]\s*)?(?:［\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*］|\[\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*\]|(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*[:：])/i;
-
-  window.gohanSanitizeAddress = function (value) {
-    if (!value) return "";
-    return String(value)
-      .replace(/\r/g, "\n")
-      .split("\n")
-      .map(line => {
-        const m = line.match(nextField);
-        return (m ? line.slice(0, m.index) : line).trim();
-      })
-      .filter(Boolean)
-      .join("\n")
-      .trim();
-  };
-
-  // Intercept common property assignments used by the MVP data model.
-  // This does not alter hours/access/price; only address values are sanitized.
-  const originalSetItem = Storage.prototype.setItem;
-  Storage.prototype.setItem = function(key, value) {
-    try {
-      let s = String(value);
-      if (key && /restaurant|shop|store|data|gohan/i.test(key)) {
-        const obj = JSON.parse(s);
-        const clean = x => {
-          if (!x || typeof x !== "object") return;
-          for (const k of Object.keys(x)) {
-            if (/address|住所/i.test(k) && typeof x[k] === "string") {
-              x[k] = window.gohanSanitizeAddress(x[k]);
-            } else if (Array.isArray(x[k])) {
-              x[k].forEach(clean);
-            } else if (x[k] && typeof x[k] === "object") {
-              clean(x[k]);
-            }
-          }
-        };
-        clean(obj);
-        s = JSON.stringify(obj);
-      }
-      return originalSetItem.call(this, key, s);
-    } catch (e) {
-      return originalSetItem.call(this, key, value);
-    }
-  };
-})();
-</script>
-
-
-<script>
-/* v14: preserve complete information blocks, especially weekday-specific hours. */
-(function () {
-  const field = "(?:営業時間|営業日時|営業|アクセス|行き方|交通アクセス|住所|所在地|定休日|予算|価格帯|価格|料金|平均予算)";
-  const inlineField = new RegExp(
-    "(?:\\s*[・•]\\s*)?(?:［\\s*" + field + "\\s*］|\\[\\s*" + field + "\\s*\\]|" + field + "\\s*[:：])", "i"
-  );
-
-  window.gohanV14 = {
-    cleanAddress(value) {
-      return String(value || "").replace(/\r/g, "\n").split("\n").map(line => {
-        const m = line.match(inlineField);
-        return (m ? line.slice(0, m.index) : line).trim();
-      }).filter(Boolean).join("\n").trim();
-    },
-    preserveHours(value) {
-      return String(value || "").replace(/\r/g, "\n").split("\n").map(s => s.trim()).filter(Boolean).join("\n").trim();
-    }
-  };
-})();
-</script>
-
 </body>
 </html>
