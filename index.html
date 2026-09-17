@@ -260,13 +260,39 @@ function isTikTokUrl(url=""){
   try{return /(^|\.)tiktok\.com$/i.test(new URL(url).hostname) || /(^|\.)vm\.tiktok\.com$/i.test(new URL(url).hostname)}catch(e){return false}
 }
 function cleanCandidateTitle(title=""){
-  let t=String(title).replace(/\r/g,"").trim();
-  const quoted=t.match(/[「『【]\s*([^」』】]{2,40})\s*[」』】]/);
-  if(quoted) return quoted[1].trim();
-  t=t.split(/\n|\r|[|｜]/)[0].trim();
-  t=t.replace(/#[^\s#]+/g,"").replace(/\s+/g," ").trim();
-  if(t.length>36) return "";
-  return t;
+  let raw=String(title).replace(/\r/g,"").trim();
+  if(!raw) return "";
+  // First prefer explicit labels often used in food-introduction posts.
+  const labeled=raw.match(/(?:店名|店舗名|お店|店)\s*[:：]\s*[「『【]?([^\n|｜」』】]{2,60})/i);
+  if(labeled) return normalizeStoreName(labeled[1]);
+  // Quoted Japanese store names are a strong signal.
+  const quoted=raw.match(/[「『【]\s*([^」』】]{2,50})\s*[」』】]/);
+  if(quoted) return normalizeStoreName(quoted[1]);
+  // If the title has separators, inspect each segment instead of blindly taking the first one.
+  const parts=raw.split(/\n|\r|[|｜]/).map(x=>x.trim()).filter(Boolean);
+  const candidates=[...parts, raw];
+  for(const part of candidates){
+    let t=part.replace(/#[^\s#]+/g,"").replace(/\s+/g," ").trim();
+    // Remove common editorial lead-ins while keeping the actual shop name.
+    t=t.replace(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:で|の)?(?:おすすめ|人気|話題|絶対行きたい|行ってほしい|行ってみてほしい|必見)の?(?:ランチ|ディナー|お店|店|グルメ|ご飯|食堂)?\s*/i,"");
+    t=t.replace(/^(?:福岡|博多|天神|薬院|大名|中洲)\s*(?:ランチ|グルメ|ご飯|お店)\s*/i,"");
+    t=t.replace(/^(?:\d+選|\d+選まとめ|まとめ)\s*/i,"").trim();
+    t=normalizeStoreName(t);
+    if(isLikelyStoreName(t)) return t;
+  }
+  return "";
+}
+function normalizeStoreName(name=""){
+  return String(name).replace(/^[「『【\s]+|[」』】\s]+$/g,"").replace(/\s+/g," ").trim();
+}
+function isLikelyStoreName(t=""){
+  if(!t || t.length<2 || t.length>60) return false;
+  if(/https?:\/\//i.test(t)) return false;
+  if(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:おすすめ|人気|話題|絶対|行ってほしい|行きたい|ランチ|ディナー|グルメ|お店|店舗|食べ歩き|まとめ|紹介)/i.test(t)) return false;
+  // A shop-like suffix is a useful signal, but do not require it.
+  if(/[屋店堂亭房館家庵麺鮨寿司食堂]/.test(t)) return true;
+  // Short titles without obvious editorial wording are still useful candidates.
+  return t.length<=28 && !/[!?！？。、,:：]/.test(t);
 }
 function extractFields(text=""){
   const t=String(text).replace(/\r/g,"");
@@ -297,7 +323,7 @@ async function enrichSharedData(url, text, initialTitle){
      title=oTitle||title;
      const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
      fields=extractFields(extra);
-     const candidate=cleanCandidateTitle(oTitle);
+     const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"));
      if(candidate) document.getElementById("importName").value=candidate;
      if(meta?.thumbnail_url){
        document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
