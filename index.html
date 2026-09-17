@@ -52,12 +52,12 @@
     .stats b{display:block;font-size:20px}.stats span{font-size:11px;color:var(--muted)}
     .menu-list{display:grid;gap:9px}.menu-item{display:flex;align-items:center;gap:11px;width:100%;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px;text-align:left}
     .menu-item>span:nth-child(2){flex:1}.menu-item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.menu-icon{width:35px;text-align:center;font-size:22px}
-    .nav{border:0;background:transparent;color:#8a837c;font-size:11px;padding:6px 3px;min-height:52px}.nav.active{color:#222;font-weight:800}.nav.plus{background:#222;color:#fff;border-radius:15px;font-size:27px;line-height:1;min-height:52px}.nav span{font-size:10px;margin-top:1px}
+    .nav{border:0;background:transparent;color:#8a837c;font-size:11px;padding:7px 3px}.nav.active{color:#222;font-weight:800}.plus{background:#222;color:#fff;border-radius:15px;font-size:20px;line-height:1}
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;z-index:50}.modal.show{display:flex}.sheet{background:var(--bg);width:100%;max-width:520px;margin:auto;border-radius:24px 24px 0 0;padding:20px 17px 28px;max-height:88vh;overflow:auto}
     .sheet-head{display:flex;justify-content:space-between;align-items:center}.close{border:0;background:#fff;border-radius:50%;width:34px;height:34px}.add-choice{display:grid;gap:10px;margin-top:16px}.choice{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left}.choice b{display:block;margin-bottom:4px}.choice span{font-size:12px;color:var(--muted)}
     .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 15px;font-size:12px;opacity:0;pointer-events:none;transition:.25s;z-index:80}.toast.show{opacity:1}
     .note{font-size:11px;color:var(--muted);line-height:1.6;background:#fff;border:1px dashed var(--line);padding:10px 12px;border-radius:12px;margin-top:10px}
-    .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}
+    .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}.import-status{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.spinner{width:15px;height:15px;border:2px solid #ddd;border-top-color:#222;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.meta-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0}.meta-card .meta-title{font-weight:750;font-size:14px}.meta-card img{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:9px}.candidate-note{font-size:11px;color:var(--muted);margin-top:5px}
     @media(min-width:700px){body{padding:20px}.app{box-shadow:0 10px 40px rgba(0,0,0,.08);border-radius:28px;overflow:hidden;background:var(--bg)}header{position:relative}}
   </style>
 </head>
@@ -149,11 +149,16 @@
 <div id="shareImportModal" class="modal" onclick="if(event.target===this)closeShareImport()">
   <div class="sheet">
     <div class="sheet-head"><h2 style="margin:0">共有から追加</h2><button class="close" onclick="closeShareImport()">×</button></div>
-    <div class="auto-note">共有された情報をもとに、まずは「行きたい」として保存できます。住所・営業時間などは後から補完できます。</div>
+    <div id="importStatus" class="import-status"><span class="spinner"></span><span>TikTokの投稿情報を確認中…</span></div>
+    <div class="auto-note">共有されたURLから拾える情報を自動で入れます。足りない項目は空欄のまま保存して、あとから追加できます。</div>
+    <div id="metaCard" class="meta-card" style="display:none"></div>
     <div class="share-preview"><div class="label">共有元</div><b id="shareTitle">共有された投稿</b><div class="meta" id="shareText"></div><div class="url" id="shareUrl"></div></div>
-    <div class="field"><label>店名</label><input id="importName" placeholder="店名"></div>
+    <div class="field"><label>店名 <span class="candidate-note" id="nameCandidateNote"></span></label><input id="importName" placeholder="店名（未設定でも保存できます）"></div>
+    <div class="field"><label>住所</label><input id="importAddress" placeholder="自動取得できた場合に入ります"></div>
+    <div class="field"><label>営業時間</label><input id="importHours" placeholder="自動取得できた場合に入ります"></div>
+    <div class="field"><label>価格帯（自由入力）</label><input id="importPrice" placeholder="例：1,000〜2,000円"></div>
     <div class="field"><label>元URL</label><input id="importUrl" placeholder="https://…"></div>
-    <div class="field"><label>メモ（共有本文）</label><textarea id="importMemo" placeholder="あとで編集できます"></textarea></div>
+    <div class="field"><label>メモ（共有本文・投稿タイトル）</label><textarea id="importMemo" placeholder="あとで編集できます"></textarea></div>
     <div class="import-actions"><button class="btn outline" onclick="closeShareImport()">あとで追加</button><button class="btn primary" onclick="saveShared()">🔵 行きたいで保存</button></div>
   </div>
 </div>
@@ -250,29 +255,98 @@ document.getElementById("homeSearch").addEventListener("input",e=>{const q=e.tar
 renderHome();
 if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 
-/* Share Target: installed PWA may open with ?title=&text=&url= */
-function escapeAttr(s=""){return esc(s).replace(/`/g,"&#96;")}
+/* Share Target: Shortcut / installed PWA may open with ?title=&text=&url= */
+function isTikTokUrl(url=""){
+  try{return /(^|\.)tiktok\.com$/i.test(new URL(url).hostname) || /(^|\.)vm\.tiktok\.com$/i.test(new URL(url).hostname)}catch(e){return false}
+}
+function cleanCandidateTitle(title=""){
+  let t=String(title).replace(/\r/g,"").trim();
+  const quoted=t.match(/[「『【]\s*([^」』】]{2,40})\s*[」』】]/);
+  if(quoted) return quoted[1].trim();
+  t=t.split(/\n|\r|[|｜]/)[0].trim();
+  t=t.replace(/#[^\s#]+/g,"").replace(/\s+/g," ").trim();
+  if(t.length>36) return "";
+  return t;
+}
+function extractFields(text=""){
+  const t=String(text).replace(/\r/g,"");
+  const address=(t.match(/(?:北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)[^\n]{2,45}(?:市|区|町|村)[^\n]{0,35}/)||t.match(/(?:東京都|大阪府|京都府|北海道|福岡県|.+県)[^\n]{2,60}/));
+  const hours=(t.match(/(?:営業時間|営業)\s*[:：]?\s*([^\n]{3,40}(?:\d{1,2}[:：]\d{2}|\d{1,2}時)[^\n]{0,25})/i)||t.match(/\d{1,2}[:：]\d{2}\s*[〜～-]\s*\d{1,2}[:：]\d{2}/));
+  const price=(t.match(/(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?|\d+)[\s〜～-]+(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?)(?:円)?/)||t.match(/\d{1,3}(?:,\d{3})?円(?:前後|〜)?/));
+  return {address:address?address[0].trim():"",hours:hours?hours[0].trim():"",price:price?price[0].trim():""};
+}
+function setImportStatus(text, loading=false){
+ const e=document.getElementById("importStatus");
+ e.innerHTML=(loading?'<span class="spinner"></span>':'<span>✓</span>')+`<span>${esc(text)}</span>`;
+}
+async function fetchTikTokOembed(url){
+ const endpoint="https://www.tiktok.com/oembed?url="+encodeURIComponent(url);
+ const res=await fetch(endpoint,{method:"GET"});
+ if(!res.ok) throw new Error("oEmbed HTTP "+res.status);
+ return await res.json();
+}
+async function enrichSharedData(url, text, initialTitle){
+ const combined=[initialTitle,text].filter(Boolean).join("\n");
+ let fields=extractFields(combined);
+ let title=initialTitle||"";
+ let meta=null;
+ if(isTikTokUrl(url)){
+   try{
+     meta=await fetchTikTokOembed(url);
+     const oTitle=meta?.title||"";
+     title=oTitle||title;
+     const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
+     fields=extractFields(extra);
+     const candidate=cleanCandidateTitle(oTitle);
+     if(candidate) document.getElementById("importName").value=candidate;
+     if(meta?.thumbnail_url){
+       document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
+       document.getElementById("metaCard").style.display="block";
+     }
+     document.getElementById("nameCandidateNote").textContent=candidate?"（TikTokタイトルから候補を自動入力）":"";
+     setImportStatus("TikTokの投稿情報を取得しました");
+   }catch(e){
+     setImportStatus("TikTokの投稿情報は取得できませんでした。URLはそのまま保存できます");
+   }
+ }else{
+   setImportStatus("共有された情報を読み込みました",false);
+ }
+ if(title && !document.getElementById("importName").value) {
+   const candidate=cleanCandidateTitle(title);
+   if(candidate){document.getElementById("importName").value=candidate;document.getElementById("nameCandidateNote").textContent="（投稿タイトルから候補を自動入力）";}
+ }
+ if(fields.address) document.getElementById("importAddress").value=fields.address;
+ if(fields.hours) document.getElementById("importHours").value=fields.hours;
+ if(fields.price) document.getElementById("importPrice").value=fields.price;
+ if(!document.getElementById("importMemo").value) document.getElementById("importMemo").value=combined;
+}
 function receiveSharedData(){
  const params=new URLSearchParams(location.search);
  const title=params.get("title")||""; const text=params.get("text")||""; const url=params.get("url")||"";
  if(!(title||text||url)) return;
- setTimeout(()=>{
+ setTimeout(async()=>{
    document.getElementById("shareTitle").textContent=title||"共有された投稿";
    document.getElementById("shareText").textContent=text||"本文は取得されませんでした";
    document.getElementById("shareUrl").textContent=url||"URLなし";
-   document.getElementById("importName").value=title||"";
+   document.getElementById("importName").value="";
+   document.getElementById("importAddress").value="";
+   document.getElementById("importHours").value="";
+   document.getElementById("importPrice").value="";
    document.getElementById("importUrl").value=url||"";
-   document.getElementById("importMemo").value=text||"";
+   document.getElementById("importMemo").value=text||title||"";
+   document.getElementById("metaCard").style.display="none";
+   document.getElementById("nameCandidateNote").textContent="";
+   setImportStatus("共有されたURLを確認中…",true);
    document.getElementById("shareImportModal").classList.add("show");
- },350);
+   await enrichSharedData(url,text,title);
+ },200);
 }
 function closeShareImport(){document.getElementById("shareImportModal").classList.remove("show");history.replaceState({},"",location.pathname)}
 function saveShared(){
- const name=document.getElementById("importName").value.trim();
- if(!name){toast("店名を入れてね");return}
+ const name=document.getElementById("importName").value.trim()||"店名未設定";
  const url=document.getElementById("importUrl").value.trim();
  const memo=document.getElementById("importMemo").value.trim();
- const r={id:Date.now(),name,area:"未分類",address:"",hours:"",price:"",genre:"",status:"want",rating:0,memo,saved:Date.now(),img:"",url};
+ const r={id:Date.now(),name,area:"未分類",address:document.getElementById("importAddress").value.trim(),hours:document.getElementById("importHours").value.trim(),price:document.getElementById("importPrice").value.trim(),genre:"",status:"want",rating:0,memo,saved:Date.now(),img:document.querySelector("#metaCard img")?.src||"",url};
  restaurants.unshift(r);save();closeShareImport();renderHome();toast("🔵 行きたい に保存しました");
 }
 receiveSharedData();
