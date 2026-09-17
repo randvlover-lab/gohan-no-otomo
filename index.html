@@ -601,9 +601,20 @@ receiveSharedData();
 
   function cleanAddress(v) {
     if (!v) return "";
+
+    // 住所と次項目が同じ行に続くケースを切り分ける。
+    // 例: 「...プリンスビル ・アクセス：天神駅から徒歩1〜2分」
+    //     「...105 ［営業時間］11:00〜」
+    const inlineNextField = /(?:\s*[・•]\s*)?(?:［\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*］|\[\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*\]|(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*[:：])/i;
+
     return v.split("\n")
-      .filter(x => !/^(アクセス|行き方|交通アクセス|営業時間|営業日時|定休日|予算|価格帯|価格|料金)\s*[:：]?$/i.test(x))
-      .join("\n").trim();
+      .map(line => {
+        const m = line.match(inlineNextField);
+        return m ? line.slice(0, m.index).trim() : line.trim();
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
   }
 
   function cleanHours(v) {
