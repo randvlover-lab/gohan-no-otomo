@@ -704,5 +704,28 @@ receiveSharedData();
 })();
 </script>
 
+
+<script>
+/* v14: preserve complete information blocks, especially weekday-specific hours. */
+(function () {
+  const field = "(?:営業時間|営業日時|営業|アクセス|行き方|交通アクセス|住所|所在地|定休日|予算|価格帯|価格|料金|平均予算)";
+  const inlineField = new RegExp(
+    "(?:\\s*[・•]\\s*)?(?:［\\s*" + field + "\\s*］|\\[\\s*" + field + "\\s*\\]|" + field + "\\s*[:：])", "i"
+  );
+
+  window.gohanV14 = {
+    cleanAddress(value) {
+      return String(value || "").replace(/\r/g, "\n").split("\n").map(line => {
+        const m = line.match(inlineField);
+        return (m ? line.slice(0, m.index) : line).trim();
+      }).filter(Boolean).join("\n").trim();
+    },
+    preserveHours(value) {
+      return String(value || "").replace(/\r/g, "\n").split("\n").map(s => s.trim()).filter(Boolean).join("\n").trim();
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
