@@ -542,5 +542,103 @@ function saveShared(){
 }
 receiveSharedData();
 </script>
+
+<script>
+/*
+ v11 extraction:
+ - Treat labeled sections as blocks, stopping at the next recognized label.
+ - Preserve multi-line / weekday-specific business hours.
+ - Keep access separate from address.
+ - Keep budget/price separate from hours.
+*/
+(function () {
+  const LABELS = [
+    "店舗名","店名","店舗情報","お店情報","基本情報",
+    "住所","所在地","アクセス","行き方","交通アクセス",
+    "営業時間","営業日時","営業時間帯","営業",
+    "定休日","休業日",
+    "予算","価格帯","価格","料金","平均予算"
+  ];
+
+  const stopRe = new RegExp(
+    "^\\s*(?:" + LABELS.map(s => s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|") + ")\\s*[:：]?\\s*$",
+    "i"
+  );
+
+  function normalizeLines(text) {
+    return String(text || "")
+      .replace(/\r/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .split("\n")
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  function labelBlock(lines, labelNames) {
+    const names = new Set(labelNames);
+    for (let i=0;i<lines.length;i++) {
+      const m = lines[i].match(/^(.+?)\s*[:：]\s*(.*)$/);
+      if (m && names.has(m[1].trim())) {
+        const first = m[2].trim();
+        const vals = first ? [first] : [];
+        for (let j=i+1;j<lines.length;j++) {
+          if (stopRe.test(lines[j])) break;
+          vals.push(lines[j]);
+        }
+        return vals.join("\n").trim();
+      }
+      if (names.has(lines[i])) {
+        const vals=[];
+        for (let j=i+1;j<lines.length;j++) {
+          if (stopRe.test(lines[j])) break;
+          vals.push(lines[j]);
+        }
+        return vals.join("\n").trim();
+      }
+    }
+    return "";
+  }
+
+  function cleanAddress(v) {
+    if (!v) return "";
+    return v.split("\n")
+      .filter(x => !/^(アクセス|行き方|交通アクセス|営業時間|営業日時|定休日|予算|価格帯|価格|料金)\s*[:：]?$/i.test(x))
+      .join("\n").trim();
+  }
+
+  function cleanHours(v) {
+    if (!v) return "";
+    return v.split("\n")
+      .filter(x => !/^(定休日|予算|価格帯|価格|料金|平均予算|住所|所在地|アクセス|行き方)\s*[:：]?$/i.test(x))
+      .join("\n").trim();
+  }
+
+  function normalizePrice(v) {
+    if (!v) return "";
+    const s = v.replace(/，/g,",").replace(/〜/g,"-").replace(/～/g,"-").replace(/[円¥￥]/g,"").trim();
+    const m = s.match(/(\d[\d,]*)\s*-\s*(\d[\d,]*)/);
+    if (m) return `${m[1].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}〜${m[2].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}円`;
+    const single = s.match(/(\d[\d,]*)/);
+    if (single) return `${single[1].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",")}円前後`;
+    return v.trim();
+  }
+
+  // Expose for the existing importer to use when available.
+  window.gohanV11Extract = function(rawText) {
+    const lines = normalizeLines(rawText);
+    const result = {
+      name: labelBlock(lines, ["店舗名","店名"]),
+      address: cleanAddress(labelBlock(lines, ["住所","所在地"])),
+      access: labelBlock(lines, ["アクセス","行き方","交通アクセス"]),
+      hours: cleanHours(labelBlock(lines, ["営業時間","営業日時","営業時間帯","営業"])),
+      price: normalizePrice(labelBlock(lines, ["予算","価格帯","価格","料金","平均予算"]))
+    };
+    // Never treat section headings as a store name.
+    if (/^(店舗情報|お店情報|基本情報)$/.test(result.name)) result.name = "";
+    return result;
+  };
+})();
+</script>
+
 </body>
 </html>
