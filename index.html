@@ -58,6 +58,8 @@
     .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 15px;font-size:12px;opacity:0;pointer-events:none;transition:.25s;z-index:80}.toast.show{opacity:1}
     .note{font-size:11px;color:var(--muted);line-height:1.6;background:#fff;border:1px dashed var(--line);padding:10px 12px;border-radius:12px;margin-top:10px}
     .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}.import-status{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.spinner{width:15px;height:15px;border:2px solid #ddd;border-top-color:#222;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.meta-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0}.meta-card .meta-title{font-weight:750;font-size:14px}.meta-card img{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:9px}.candidate-note{font-size:11px;color:var(--muted);margin-top:5px}
+
+    .debug-panel{background:#1f1f1f;color:#f5f5f5;border-radius:15px;padding:12px;margin-top:10px;font-size:11px;line-height:1.55;overflow:auto;max-height:420px}.debug-panel .dbg-title{font-weight:800;font-size:12px;margin:8px 0 4px}.debug-panel pre{white-space:pre-wrap;word-break:break-word;margin:0;color:#f5f5f5}.debug-panel .ok{color:#b8f0c2}.debug-panel .warn{color:#ffd38a}
     @media(min-width:700px){body{padding:20px}.app{box-shadow:0 10px 40px rgba(0,0,0,.08);border-radius:28px;overflow:hidden;background:var(--bg)}header{position:relative}}
   
     .place-candidates{background:#fff;border:1px solid var(--line);border-radius:15px;padding:10px;margin:8px 0 14px}.place-candidates .pc-title{font-size:12px;color:var(--muted);margin-bottom:8px}.place-candidate{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;text-align:left;margin-top:7px}.place-candidate b{display:block;font-size:13px}.place-candidate span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.lookup-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
@@ -163,6 +165,8 @@
     <div class="field"><label>元URL</label><input id="importUrl" placeholder="https://…"></div>
     <div class="field"><label>メモ（共有本文・投稿タイトル）</label><textarea id="importMemo" placeholder="あとで編集できます"></textarea></div>
     <div class="import-actions"><button class="btn outline" onclick="closeShareImport()">あとで追加</button><button class="btn primary" onclick="saveShared()">🔵 行きたいで保存</button></div>
+    <button class="ghost" style="width:100%;margin-top:10px" onclick="toggleDebugPanel()">🔧 取得データを確認</button>
+    <div id="debugPanel" class="debug-panel" style="display:none"></div>
   </div>
 </div>
 <div id="toast" class="toast"></div>
@@ -441,9 +445,13 @@ function selectPlaceCandidate(i){
   document.getElementById("nameCandidateNote").textContent="（住所から候補を選択）";
   toast("店名を設定しました");
 }
+window.__debugData={};
+function toggleDebugPanel(){const e=document.getElementById("debugPanel");e.style.display=e.style.display==="none"?"block":"none";renderDebugPanel()}
+function renderDebugPanel(){const d=window.__debugData||{};const e=document.getElementById("debugPanel");if(!e)return; const section=(t,v,cls="")=>`<div class="dbg-title">${esc(t)}</div><pre class="${cls}">${esc(v==null?"":typeof v==="string"?v:JSON.stringify(v,null,2))}</pre>`; e.innerHTML=section("① 共有シートから届いたタイトル",d.inputTitle||"（なし）",d.inputTitle?"ok":"warn")+section("② 共有シートから届いた本文",d.inputText||"（なし）",d.inputText?"ok":"warn")+section("③ 共有されたURL",d.inputUrl||"（なし）",d.inputUrl?"ok":"warn")+section("④ TikTok oEmbedのタイトル",d.oembedTitle||"（なし）",d.oembedTitle?"ok":"warn")+section("⑤ TikTok oEmbedの説明/作者など",d.oembedExtra||"（なし）")+section("⑥ 解析に使った全文",d.combined||"（なし）")+section("⑦ 抽出結果（住所・営業時間・価格）",d.fields||{})+section("⑧ 店名候補",d.nameCandidate||"（なし）",d.nameCandidate?"ok":"warn")+section("⑨ 住所から取得した店舗候補",d.placeCandidates||[])}
 async function enrichSharedData(url, text, initialTitle){
  const combined=[initialTitle,text].filter(Boolean).join("\n");
- let fields=extractFields(combined);
+ window.__debugData={inputTitle:initialTitle||"",inputText:text||"",inputUrl:url||"",combined,fields:{},oembedTitle:"",oembedExtra:"",nameCandidate:"",placeCandidates:[]};
+ let fields=extractFields(combined); window.__debugData.fields=fields; renderDebugPanel();
  let title=initialTitle||"";
  let meta=null;
  if(isTikTokUrl(url)){
@@ -452,9 +460,11 @@ async function enrichSharedData(url, text, initialTitle){
      const oTitle=meta?.title||"";
      title=oTitle||title;
      const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
-     fields=extractFields(extra);
+     window.__debugData.oembedTitle=oTitle||""; window.__debugData.oembedExtra={author_name:meta?.author_name||"",author_url:meta?.author_url||"",thumbnail_url:meta?.thumbnail_url||"",html:meta?.html?"（embed HTMLあり）":""};
+     window.__debugData.combined=extra;
+     fields=extractFields(extra); window.__debugData.fields=fields; renderDebugPanel();
      const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), false) || cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), true);
-     if(candidate) document.getElementById("importName").value=candidate;
+     if(candidate) document.getElementById("importName").value=candidate; window.__debugData.nameCandidate=candidate||""; renderDebugPanel();
      if(meta?.thumbnail_url){
        document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
        document.getElementById("metaCard").style.display="block";
@@ -478,6 +488,7 @@ async function enrichSharedData(url, text, initialTitle){
  if(address){
    try{
      const candidates=await lookupPlaceByAddress(address);
+     window.__debugData.placeCandidates=candidates; renderDebugPanel();
      if(candidates.length){
        const current=document.getElementById("importName").value.trim();
        // Prefer a place candidate when no reliable name came from TikTok.
@@ -515,6 +526,7 @@ function receiveSharedData(){
    document.getElementById("placeCandidates").style.display="none";
    document.getElementById("placeCandidates").innerHTML="";
    window.__placeCandidates=[];
+   window.__debugData={inputTitle:title,inputText:text,inputUrl:url,combined:"",fields:{},oembedTitle:"",oembedExtra:"",nameCandidate:"",placeCandidates:[]}; renderDebugPanel();
    setImportStatus("共有されたURLを確認中…",true);
    document.getElementById("shareImportModal").classList.add("show");
    await enrichSharedData(url,text,title);
