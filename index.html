@@ -59,7 +59,9 @@
     .note{font-size:11px;color:var(--muted);line-height:1.6;background:#fff;border:1px dashed var(--line);padding:10px 12px;border-radius:12px;margin-top:10px}
     .share-preview{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;margin:12px 0}.share-preview .label{font-size:11px;color:var(--muted);margin-bottom:5px}.share-preview .url{font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.import-actions{display:flex;gap:8px;margin-top:14px}.import-actions .btn{flex:1}.auto-note{font-size:11px;color:var(--muted);background:var(--blue-bg);border-radius:12px;padding:10px 12px;line-height:1.5;margin-top:10px}.import-status{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.spinner{width:15px;height:15px;border:2px solid #ddd;border-top-color:#222;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.meta-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0}.meta-card .meta-title{font-weight:750;font-size:14px}.meta-card img{width:100%;max-height:180px;object-fit:cover;border-radius:12px;margin-top:9px}.candidate-note{font-size:11px;color:var(--muted);margin-top:5px}
     @media(min-width:700px){body{padding:20px}.app{box-shadow:0 10px 40px rgba(0,0,0,.08);border-radius:28px;overflow:hidden;background:var(--bg)}header{position:relative}}
-  </style>
+  
+    .place-candidates{background:#fff;border:1px solid var(--line);border-radius:15px;padding:10px;margin:8px 0 14px}.place-candidates .pc-title{font-size:12px;color:var(--muted);margin-bottom:8px}.place-candidate{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;text-align:left;margin-top:7px}.place-candidate b{display:block;font-size:13px}.place-candidate span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.lookup-note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+</style>
 </head>
 <body>
 <div class="app">
@@ -155,6 +157,7 @@
     <div class="share-preview"><div class="label">共有元</div><b id="shareTitle">共有された投稿</b><div class="meta" id="shareText"></div><div class="url" id="shareUrl"></div></div>
     <div class="field"><label>店名 <span class="candidate-note" id="nameCandidateNote"></span></label><input id="importName" placeholder="店名（未設定でも保存できます）"></div>
     <div class="field"><label>住所</label><input id="importAddress" placeholder="自動取得できた場合に入ります"></div>
+    <div id="placeCandidates" class="place-candidates" style="display:none"></div>
     <div class="field"><label>営業時間</label><input id="importHours" placeholder="自動取得できた場合に入ります"></div>
     <div class="field"><label>価格帯（自由入力）</label><input id="importPrice" placeholder="例：1,000〜2,000円"></div>
     <div class="field"><label>元URL</label><input id="importUrl" placeholder="https://…"></div>
@@ -311,6 +314,34 @@ async function fetchTikTokOembed(url){
  if(!res.ok) throw new Error("oEmbed HTTP "+res.status);
  return await res.json();
 }
+async function lookupPlaceByAddress(address){
+  if(!address) return [];
+  // OpenStreetMap Nominatim: address -> nearby named place candidates.
+  // This is a best-effort public lookup; it does not require a user API key.
+  const endpoint="https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=jp&q="+encodeURIComponent(address);
+  const res=await fetch(endpoint,{headers:{"Accept":"application/json"}});
+  if(!res.ok) throw new Error("place lookup HTTP "+res.status);
+  const data=await res.json();
+  return (Array.isArray(data)?data:[]).filter(x=>x.name || x.display_name).map(x=>({
+    name:(x.name||"").trim(), display:(x.display_name||"").trim(), type:x.type||"", category:x.category||""
+  })).filter(x=>x.name && !/^(日本|Japan|福岡県|福岡市|中央区|博多区)/.test(x.name));
+}
+function showPlaceCandidates(candidates,address){
+  const box=document.getElementById("placeCandidates");
+  if(!box) return;
+  if(!candidates.length){box.style.display="none";return;}
+  box.innerHTML=`<div class="pc-title">📍 住所から見つかった店舗候補（タップで店名に設定）</div>`+
+    candidates.slice(0,5).map((c,i)=>`<button class="place-candidate" onclick="selectPlaceCandidate(${i})"><div><b>${esc(c.name)}</b><span>${esc(c.display)}</span></div></button>`).join("")+
+    `<div class="lookup-note">候補は地図データをもとにした参考情報です。違う場合は店名を直接修正できます。</div>`;
+  box.style.display="block";
+  window.__placeCandidates=candidates;
+}
+function selectPlaceCandidate(i){
+  const c=window.__placeCandidates?.[i]; if(!c) return;
+  document.getElementById("importName").value=c.name;
+  document.getElementById("nameCandidateNote").textContent="（住所から候補を選択）";
+  toast("店名を設定しました");
+}
 async function enrichSharedData(url, text, initialTitle){
  const combined=[initialTitle,text].filter(Boolean).join("\n");
  let fields=extractFields(combined);
@@ -331,9 +362,7 @@ async function enrichSharedData(url, text, initialTitle){
      }
      document.getElementById("nameCandidateNote").textContent=candidate?"（TikTokタイトルから候補を自動入力）":"";
      setImportStatus("TikTokの投稿情報を取得しました");
-   }catch(e){
-     setImportStatus("TikTokの投稿情報は取得できませんでした。URLはそのまま保存できます");
-   }
+   }catch(e){ setImportStatus("TikTokの投稿情報は取得できませんでした。URLはそのまま保存できます"); }
  }else{
    setImportStatus("共有された情報を読み込みました",false);
  }
@@ -345,6 +374,28 @@ async function enrichSharedData(url, text, initialTitle){
  if(fields.hours) document.getElementById("importHours").value=fields.hours;
  if(fields.price) document.getElementById("importPrice").value=fields.price;
  if(!document.getElementById("importMemo").value) document.getElementById("importMemo").value=combined;
+ // New v7 step: use the successfully extracted address to find a named place.
+ const address=document.getElementById("importAddress").value.trim();
+ if(address){
+   try{
+     const candidates=await lookupPlaceByAddress(address);
+     if(candidates.length){
+       const current=document.getElementById("importName").value.trim();
+       // Prefer a place candidate when no reliable name came from TikTok.
+       if(!current || current==="店名未設定"){
+         showPlaceCandidates(candidates,address);
+         setImportStatus("住所から店舗候補を見つけました");
+       } else {
+         showPlaceCandidates(candidates,address);
+         setImportStatus("店舗名と住所を確認しました");
+       }
+     } else {
+       setImportStatus("住所は取得できました。店舗名の候補は見つかりませんでした");
+     }
+   }catch(e){
+     setImportStatus("住所は取得できました。店舗名の自動照合は利用できませんでした");
+   }
+ }
 }
 function receiveSharedData(){
  const params=new URLSearchParams(location.search);
@@ -362,6 +413,9 @@ function receiveSharedData(){
    document.getElementById("importMemo").value=text||title||"";
    document.getElementById("metaCard").style.display="none";
    document.getElementById("nameCandidateNote").textContent="";
+   document.getElementById("placeCandidates").style.display="none";
+   document.getElementById("placeCandidates").innerHTML="";
+   window.__placeCandidates=[];
    setImportStatus("共有されたURLを確認中…",true);
    document.getElementById("shareImportModal").classList.add("show");
    await enrichSharedData(url,text,title);
