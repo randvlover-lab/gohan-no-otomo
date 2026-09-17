@@ -262,12 +262,13 @@ if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.s
 function isTikTokUrl(url=""){
   try{return /(^|\.)tiktok\.com$/i.test(new URL(url).hostname) || /(^|\.)vm\.tiktok\.com$/i.test(new URL(url).hostname)}catch(e){return false}
 }
-function cleanCandidateTitle(title=""){
+function cleanCandidateTitle(title="", allowHashtag=false){
   let raw=String(title).replace(/\r/g,"").trim();
   if(!raw) return "";
   const lines=raw.split("\n").map(x=>x.trim()).filter(Boolean);
   const badHeader=/^(?:店舗情報|お店情報|基本情報|店舗紹介|お店紹介|店舗データ|ショップ情報|店情報)$/i;
-  // Explicit store-name labels are strongest. Never treat a section heading itself as a store name.
+
+  // 1) Explicit store-name labels are strongest.
   for(let i=0;i<lines.length;i++){
     const m=lines[i].match(/^(?:店名|店舗名|お店|店)\s*[:：]\s*(.+)$/i);
     if(m && !badHeader.test(m[1].trim())) return normalizeStoreName(m[1]);
@@ -277,10 +278,24 @@ function cleanCandidateTitle(title=""){
       if(isLikelyStoreName(next)) return next;
     }
   }
-  const quoted=raw.match(/[「『【]\s*([^」』】]{2,50})\s*[」』】]/);
-  if(quoted && !badHeader.test(quoted[1].trim())) return normalizeStoreName(quoted[1]);
+
+  // 2) Quoted names.
+  const quoted=raw.match(/[「『【]\s*([^」』】]{2,60})\s*[」』】]/);
+  if(quoted && !badHeader.test(quoted[1].trim()) && isLikelyStoreName(quoted[1])) return normalizeStoreName(quoted[1]);
+
+  // 3) Hashtags are a LAST resort only. Generic/location/food tags are ignored.
+  if(allowHashtag){
+    const tags=[...raw.matchAll(/#([^\s#、,，。！？!?]+)/g)].map(m=>m[1].trim()).filter(Boolean);
+    for(const tag of tags){
+      if(isGenericHashtag(tag)) continue;
+      const candidate=normalizeStoreName(tag);
+      if(isLikelyStoreName(candidate,true)) return candidate;
+    }
+  }
+
+  // 4) Lines / title segments.
   const parts=raw.split(/\n|[|｜]/).map(x=>x.trim()).filter(Boolean);
-  for(const part of [...parts,raw]){
+  for(const part of parts){
     if(isInfoLabel(part)) continue;
     let t=part.replace(/#[^\s#]+/g,"").replace(/^(?:店舗情報|お店情報|基本情報)\s*/i,"").replace(/\s+/g," ").trim();
     t=t.replace(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:で|の)?(?:おすすめ|人気|話題|絶対行きたい|行ってほしい|行ってみてほしい|必見)の?(?:ランチ|ディナー|お店|店|グルメ|ご飯|食堂)?\s*/i,"");
@@ -291,19 +306,43 @@ function cleanCandidateTitle(title=""){
   }
   return "";
 }
+function isGenericHashtag(tag=""){
+  const t=String(tag).replace(/^#/,'').toLowerCase();
+  const generic=[
+    "グルメ","福岡グルメ","福岡","福岡ランチ","福岡ディナー","天神","天神グルメ","天神ランチ","博多","博多グルメ","博多ランチ","薬院","大名","中洲",
+    "ランチ","ディナー","カフェ","居酒屋","焼肉","ラーメン","うどん","寿司","定食","食べ歩き","食べ歩きグルメ","おすすめ","おすすめグルメ","人気店","新店","グルメ情報","お店紹介","店舗情報","ご飯","ごはん","food","fukuoka","fukuokagourmet","lunch","dinner","cafe","japan","japanesefood"
+  ];
+  if(generic.includes(t)) return true;
+  if(/(?:グルメ|ランチ|ディナー|カフェ|食べ歩き|おすすめ|食べ放題|飲み放題|福岡|博多|天神|薬院|大名|中洲|九州|旅行|デート|女子会|映え|food|foodie|gourmet|lunch|dinner|cafe)/i.test(t)) return true;
+  return t.length<2 || /^\d+選?$/.test(t);
+}
 function isInfoLabel(t=""){
   return /^(?:店舗情報|お店情報|基本情報|店舗紹介|お店紹介|店舗データ|ショップ情報|店情報|住所|所在地|営業時間|営業|予算|価格|料金|定休日|電話|TEL|アクセス|ジャンル|最寄り|予約)$/i.test(String(t).trim());
 }
 function normalizeStoreName(name=""){
   return String(name).replace(/^[「『【\s]+|[」』】\s]+$/g,"").replace(/^店名\s*[:：]?\s*/i,"").replace(/^店舗名\s*[:：]?\s*/i,"").replace(/\s+/g," ").trim();
 }
-function isLikelyStoreName(t=""){
+function isLikelyStoreName(t="", fromHashtag=false){
   if(!t || t.length<2 || t.length>60) return false;
   if(isInfoLabel(t) || /^(?:店舗情報|お店情報|基本情報)$/i.test(t)) return false;
   if(/https?:\/\//i.test(t)) return false;
-  if(/^(?:福岡|博多|天神|薬院|大名|中洲)?(?:おすすめ|人気|話題|絶対|行ってほしい|行きたい|ランチ|ディナー|グルメ|お店|店舗|食べ歩き|まとめ|紹介)/i.test(t)) return false;
+  if(!fromHashtag && /^(?:福岡|博多|天神|薬院|大名|中洲)?(?:おすすめ|人気|話題|絶対|行ってほしい|行きたい|ランチ|ディナー|グルメ|お店|店舗|食べ歩き|まとめ|紹介)/i.test(t)) return false;
+  if(fromHashtag && isGenericHashtag(t)) return false;
   if(/[屋店堂亭房館家庵麺鮨寿司食堂]/.test(t)) return true;
+  if(fromHashtag) return t.length<=24 && !/[!?！？。、,:：]/.test(t);
   return t.length<=28 && !/[!?！？。、,:：]/.test(t);
+}
+function formatPriceRange(a,b){
+  const n1=Number(String(a).replace(/,/g,""));
+  const n2=Number(String(b).replace(/,/g,""));
+  if(!Number.isFinite(n1)||!Number.isFinite(n2)||n1<100||n2<n1||n2>1000000) return "";
+  return `${n1.toLocaleString("ja-JP")}〜${n2.toLocaleString("ja-JP")}円`;
+}
+function formatSinglePrice(a,context=""){
+  const n=Number(String(a).replace(/[^0-9]/g,""));
+  if(!Number.isFinite(n)||n<100||n>1000000) return "";
+  const suffix=/前後|くらい|程度/.test(context)?"前後":"";
+  return `${n.toLocaleString("ja-JP")}円${suffix}`;
 }
 function extractFields(text=""){
   const raw=String(text).replace(/\r/g,"");
@@ -335,22 +374,33 @@ function extractFields(text=""){
   hoursVal=hoursVal.replace(/\s*(?:予算|価格(?:帯)?|料金|定休日|住所|所在地|電話|TEL|ジャンル)\s*[:：]?.*$/i,"").trim();
   hoursVal=hoursVal.replace(/[、,]\s*(?:予算|価格(?:帯)?|料金|定休日|住所|所在地|電話|TEL|ジャンル)\s*[:：]?.*$/i,"").trim();
 
-  // Price: prefer an explicit 予算/価格 field. Keep it independent from hours.
+  // Price: prefer an explicit 予算/価格 field and capture the COMPLETE numeric range.
   let priceVal="";
+  const priceRe=/[¥￥]?\s*(\d{1,3}(?:,\d{3})?|\d{3,6})\s*(?:円)?\s*(?:〜|～|~|\-|–|—|to)\s*[¥￥]?\s*(\d{1,3}(?:,\d{3})?|\d{3,6})\s*円?/i;
+  const singlePriceRe=/[¥￥]?\s*(\d{1,3}(?:,\d{3})?|\d{3,6})\s*円?(?:前後|くらい|程度|〜)?/i;
   for(let i=0;i<lines.length;i++){
     const m=lines[i].match(/^(?:予算|価格帯|価格|料金|平均予算|ご予算)\s*[:：]?\s*(.*)$/i);
     if(m){
-      priceVal=m[1].trim() || (lines[i+1]||"");
-      break;
+      let candidate=m[1].trim();
+      if(!candidate && lines[i+1]) candidate=lines[i+1].trim();
+      const range=candidate.match(priceRe);
+      const single=candidate.match(singlePriceRe);
+      if(range){
+        priceVal=formatPriceRange(range[1],range[2]);
+      }else if(single){
+        priceVal=formatSinglePrice(single[1],candidate);
+      }
+      if(priceVal) break;
     }
   }
   if(!priceVal){
-    const pm=raw.match(/[¥￥]?\s*\d{1,3}(?:,\d{3})?\s*(?:〜|～|-|–|—)\s*[¥￥]?\s*\d{1,3}(?:,\d{3})?\s*円?/);
-    if(pm) priceVal=pm[0].trim();
+    const pm=raw.match(priceRe);
+    if(pm) priceVal=formatPriceRange(pm[1],pm[2]);
   }
-  priceVal=priceVal.replace(/^予算\s*[:：]?\s*/i,"").trim();
-  if(priceVal && !/円$/.test(priceVal) && /\d/.test(priceVal)) priceVal=priceVal.replace(/\s*$/,"円");
-
+  if(!priceVal){
+    const sm=raw.match(/(?:予算|価格帯|価格|料金|平均予算|ご予算)\s*[:：]?\s*([¥￥]?\s*\d{1,3}(?:,\d{3})?|\d{3,6})\s*円?(?:前後|くらい|程度)/i);
+    if(sm) priceVal=formatSinglePrice(sm[1],sm[0]);
+  }
   return {address:addressOut,hours:hoursVal,price:priceVal};
 }
 function setImportStatus(text, loading=false){
@@ -403,7 +453,7 @@ async function enrichSharedData(url, text, initialTitle){
      title=oTitle||title;
      const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
      fields=extractFields(extra);
-     const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"));
+     const candidate=cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), false) || cleanCandidateTitle([text,oTitle].filter(Boolean).join("\n"), true);
      if(candidate) document.getElementById("importName").value=candidate;
      if(meta?.thumbnail_url){
        document.getElementById("metaCard").innerHTML=`<div class="meta-title">TikTokから取得</div><div class="candidate-note">${esc(meta.author_name?"@"+meta.author_name:"投稿情報")}</div><img src="${escapeAttr(meta.thumbnail_url)}" alt="TikTok thumbnail">`;
@@ -416,7 +466,7 @@ async function enrichSharedData(url, text, initialTitle){
    setImportStatus("共有された情報を読み込みました",false);
  }
  if(title && !document.getElementById("importName").value) {
-   const candidate=cleanCandidateTitle(title);
+   const candidate=cleanCandidateTitle(title, false) || cleanCandidateTitle(title, true);
    if(candidate){document.getElementById("importName").value=candidate;document.getElementById("nameCandidateNote").textContent="（投稿タイトルから候補を自動入力）";}
  }
  if(fields.address) document.getElementById("importAddress").value=fields.address;
