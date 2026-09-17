@@ -651,5 +651,58 @@ receiveSharedData();
 })();
 </script>
 
+
+<script>
+/* v13: final address sanitizer
+   Applied at the final data boundary so inline "アクセス/営業時間/予算..."
+   cannot remain attached to the stored address. */
+(function () {
+  const nextField = /(?:\s*[・•]\s*)?(?:［\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*］|\[\s*(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*\]|(?:営業時間|営業日時|アクセス|行き方|交通アクセス|定休日|予算|価格帯|価格|料金|平均予算)\s*[:：])/i;
+
+  window.gohanSanitizeAddress = function (value) {
+    if (!value) return "";
+    return String(value)
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .map(line => {
+        const m = line.match(nextField);
+        return (m ? line.slice(0, m.index) : line).trim();
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  };
+
+  // Intercept common property assignments used by the MVP data model.
+  // This does not alter hours/access/price; only address values are sanitized.
+  const originalSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(key, value) {
+    try {
+      let s = String(value);
+      if (key && /restaurant|shop|store|data|gohan/i.test(key)) {
+        const obj = JSON.parse(s);
+        const clean = x => {
+          if (!x || typeof x !== "object") return;
+          for (const k of Object.keys(x)) {
+            if (/address|住所/i.test(k) && typeof x[k] === "string") {
+              x[k] = window.gohanSanitizeAddress(x[k]);
+            } else if (Array.isArray(x[k])) {
+              x[k].forEach(clean);
+            } else if (x[k] && typeof x[k] === "object") {
+              clean(x[k]);
+            }
+          }
+        };
+        clean(obj);
+        s = JSON.stringify(obj);
+      }
+      return originalSetItem.call(this, key, s);
+    } catch (e) {
+      return originalSetItem.call(this, key, value);
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
