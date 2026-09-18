@@ -65,7 +65,7 @@
 </head>
 <body>
 <div class="app">
-  <header><div class="brand">🍚 ご飯のおとも</div><div class="tagline">気になったお店を、忘れない。</div><div class="version-badge">MVP v7.6</div></header>
+  <header><div class="brand">🍚 ご飯のおとも</div><div class="tagline">気になったお店を、忘れない。</div><div class="version-badge">MVP v7.7</div></header>
 
   <main>
     <section id="home" class="screen active">
@@ -387,6 +387,11 @@ function setImportStatus(text, loading=false){
  const e=document.getElementById("importStatus");
  e.innerHTML=(loading?'<span class="spinner"></span>':'<span>✓</span>')+`<span>${esc(text)}</span>`;
 }
+function setDebugStatus(text, loading=false){
+  const e=document.getElementById("importStatus");
+  if(!e) return;
+  e.innerHTML=(loading?'<span class="spinner"></span>':'<span>✓</span>')+`<span>${esc("v7.7: "+text)}</span>`;
+}
 async function fetchWithTimeout(url, options={}, timeoutMs=6000){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -397,13 +402,16 @@ async function fetchWithTimeout(url, options={}, timeoutMs=6000){
   }
 }
 async function fetchTikTokOembed(url){
+ setDebugStatus("TikTokへ接続中…",true);
  const endpoint="https://www.tiktok.com/oembed?url="+encodeURIComponent(url);
  const res=await fetchWithTimeout(endpoint,{method:"GET"},6000);
+ setDebugStatus("TikTokから応答あり。内容を解析中…",true);
  if(!res.ok) throw new Error("oEmbed HTTP "+res.status);
  return await res.json();
 }
 async function lookupPlaceByAddress(address){
   if(!address) return [];
+  setDebugStatus("住所から店舗候補を照合中…",true);
   // OpenStreetMap Nominatim: address -> nearby named place candidates.
   // This is a best-effort public lookup; it does not require a user API key.
   const endpoint="https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=jp&q="+encodeURIComponent(address);
@@ -431,6 +439,7 @@ function selectPlaceCandidate(i){
   toast("店名を設定しました");
 }
 async function enrichSharedData(url, text, initialTitle){
+ setDebugStatus("共有データを解析中…",true);
  const combined=[initialTitle,text].filter(Boolean).join("\n");
  // まず共有時点で渡ってきた情報を即反映。外部通信待ちで画面を止めない。
  let fields=extractFields(combined);
@@ -443,6 +452,7 @@ async function enrichSharedData(url, text, initialTitle){
  if(isTikTokUrl(url)){
    setImportStatus("TikTokの情報を自動取得中…",true);
    try{
+     setDebugStatus("TikTokへ接続中…",true);
      const meta=await fetchTikTokOembed(url);
      const oTitle=meta?.title||"";
      title=oTitle||title;
@@ -486,7 +496,7 @@ async function enrichSharedData(url, text, initialTitle){
        setImportStatus("自動取得が完了しました。内容を確認して保存できます");
      }
    }catch(e){
-     setImportStatus("自動取得が完了しました。住所照合は利用できませんでした");
+     setDebugStatus("住所照合で停止: "+(e?.name||"Error")+" / "+(e?.message||"unknown"),false);
    }
  }else{
    setImportStatus("自動取得が完了しました。内容を確認して保存できます");
@@ -511,9 +521,13 @@ function receiveSharedData(){
    document.getElementById("placeCandidates").style.display="none";
    document.getElementById("placeCandidates").innerHTML="";
    window.__placeCandidates=[];
-   setImportStatus("共有されたURLを確認中…",true);
+   setDebugStatus("共有URLを受信しました。解析開始…",true);
    document.getElementById("shareImportModal").classList.add("show");
-   await enrichSharedData(url,text,title);
+   try{
+     await enrichSharedData(url,text,title);
+   }catch(e){
+     setDebugStatus("処理全体で停止: "+(e?.name||"Error")+" / "+(e?.message||"unknown"),false);
+   }
  },200);
 }
 function closeShareImport(){document.getElementById("shareImportModal").classList.remove("show");history.replaceState({},"",location.pathname)}
