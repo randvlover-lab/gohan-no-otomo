@@ -291,10 +291,97 @@ function isLikelyStoreName(t=""){
 }
 function extractFields(text=""){
   const t=String(text).replace(/\r/g,"");
-  const address=(t.match(/(?:北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)[^\n]{2,45}(?:市|区|町|村)[^\n]{0,35}/)||t.match(/(?:東京都|大阪府|京都府|北海道|福岡県|.+県)[^\n]{2,60}/));
-  const hours=(t.match(/(?:営業時間|営業)\s*[:：]?\s*([^\n]{3,40}(?:\d{1,2}[:：]\d{2}|\d{1,2}時)[^\n]{0,25})/i)||t.match(/\d{1,2}[:：]\d{2}\s*[〜～-]\s*\d{1,2}[:：]\d{2}/));
-  const price=(t.match(/(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?|\d+)[\s〜～-]+(?:[¥￥]?\s*\d{1,3}(?:,\d{3})?)(?:円)?/)||t.match(/\d{1,3}(?:,\d{3})?円(?:前後|〜)?/));
-  return {address:address?address[0].trim():"",hours:hours?hours[0].trim():"",price:price?price[0].trim():""};
+
+  // [住所] / 【住所】 / 住所: のような見出し付き情報を優先して、
+  // 次の見出しまでを「住所」として扱う。
+  function labeledValue(labelPattern){
+    const re=new RegExp(
+      "(?:\\[|【|\\(|（)?\\s*"+labelPattern+"\\s*(?:\\]|】|\\)|）)?\\s*[:：]?\\s*([^\\n]{1,120})",
+      "i"
+    );
+    const m=t.match(re);
+    return m ? m[1].trim() : "";
+  }
+
+  function cutAtNextLabel(value){
+    return String(value||"")
+      .split(/(?:\\[|【|\\(|（)\\s*(?:住所|所在地|アクセス|営業時間|営業|予算|料金|価格|価格帯|ジャンル|電話|TEL|定休日|休日|予約|最寄り)[^\\n]{0,30}(?:\\]|】|\\)|）)?/i)[0]
+      .trim();
+  }
+
+  function cleanAddress(value){
+    let s=cutAtNextLabel(value)
+      .replace(/^(?:住所|所在地)\\s*[:：]?\\s*/i,"")
+      .trim();
+
+    // 同じ行に「アクセス」「営業時間」などが続く場合もそこで切る。
+    s=s.split(/\\s+(?:アクセス|営業時間|営業情報|予算|料金|価格|価格帯|定休日|電話番号|TEL)\\s*[:：]?/i)[0].trim();
+
+    return s;
+  }
+
+  function cleanHours(value){
+    let s=cutAtNextLabel(value)
+      .replace(/^(?:営業時間|営業)\\s*[:：]?\\s*/i,"")
+      .trim();
+    // 次の角括弧見出しが残った場合はそこから先を捨てる。
+    s=s.split(/\\s*(?:\\[|【|\\(|（)\\s*(?:住所|アクセス|予算|料金|価格|価格帯|ジャンル|電話|TEL|定休日)[^\\n]{0,30}(?:\\]|】|\\)|）)?/i)[0].trim();
+    return s;
+  }
+
+  function cleanPrice(value){
+    let s=String(value||"")
+      .replace(/^(?:予算|料金|価格|価格帯)\\s*[:：]?\\s*/i,"")
+      .trim();
+
+    // 予算欄の中から金額レンジ/金額を抽出。
+    const range=s.match(/[¥￥]?\\s*\\d{1,3}(?:,\\d{3})*\\s*[〜～~\-ー]\\s*[¥￥]?\\s*\\d{1,3}(?:,\\d{3})*\\s*円?/);
+    if(range) return range[0].replace(/\s+/g,"").trim();
+
+    const single=s.match(/[¥￥]?\\s*\\d{1,3}(?:,\\d{3})*\\s*円\\s*(?:前後|〜)?/);
+    if(single) return single[0].replace(/\s+/g,"").trim();
+
+    return "";
+  }
+
+  // まず見出し付きの情報を取得。TikTok本文ではこの形式が最も安定。
+  const labeledAddress=cleanAddress(labeledValue("(?:住所|所在地)"));
+  const labeledHours=cleanHours(labeledValue("(?:営業時間|営業)"));
+  const labeledPrice=cleanPrice(labeledValue("(?:予算|料金|価格|価格帯)"));
+
+  // 見出しがない場合だけ、従来より厳しめのフォールバックを使う。
+  let address=labeledAddress;
+  if(!address){
+    const m=t.match(/(?:北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)[^\\n]{2,90}/);
+    if(m) address=cleanAddress(m[0]);
+  }
+
+  let hours=labeledHours;
+  if(!hours){
+    const m=t.match(/(?:営業時間|営業)\\s*[:：]?\\s*([^\\n]{1,120})/i);
+    if(m) hours=cleanHours(m[0]);
+    if(!hours){
+      const m2=t.match(/(?:\\d{1,2}[:：]\\d{2}\\s*[〜～\-ー]\\s*\\d{1,2}[:：]\\d{2})(?:[^\\n]{0,80})?/);
+      if(m2) hours=m2[0].trim();
+    }
+  }
+
+  let price=labeledPrice;
+  if(!price){
+    // 時刻「18:00-25:00」を予算として拾わないため、コロン付き数字は対象外。
+    const m=t.match(/[¥￥]?\\s*\\d{3,6}(?:,\\d{3})?\\s*[〜～~\-ー]\\s*[¥￥]?\\s*\\d{3,6}(?:,\\d{3})*\\s*円?/);
+    if(m) price=m[0].replace(/\s+/g,"").trim();
+    if(!price){
+      const m2=t.match(/[¥￥]?\\s*\\d{3,6}(?:,\\d{3})?\\s*円\\s*(?:前後|〜)?/);
+      if(m2) price=m2[0].replace(/\s+/g,"").trim();
+    }
+  }
+
+  return {
+    address:address||"",
+    hours:hours||"",
+    price:price||""
+  };
 }
 function setImportStatus(text, loading=false){
  const e=document.getElementById("importStatus");
