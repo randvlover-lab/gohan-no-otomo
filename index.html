@@ -387,9 +387,18 @@ function setImportStatus(text, loading=false){
  const e=document.getElementById("importStatus");
  e.innerHTML=(loading?'<span class="spinner"></span>':'<span>✓</span>')+`<span>${esc(text)}</span>`;
 }
+async function fetchWithTimeout(url, options={}, timeoutMs=6000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    return await fetch(url,{...options,signal:controller.signal});
+  }finally{
+    clearTimeout(timer);
+  }
+}
 async function fetchTikTokOembed(url){
  const endpoint="https://www.tiktok.com/oembed?url="+encodeURIComponent(url);
- const res=await fetch(endpoint,{method:"GET"});
+ const res=await fetchWithTimeout(endpoint,{method:"GET"},6000);
  if(!res.ok) throw new Error("oEmbed HTTP "+res.status);
  return await res.json();
 }
@@ -398,7 +407,7 @@ async function lookupPlaceByAddress(address){
   // OpenStreetMap Nominatim: address -> nearby named place candidates.
   // This is a best-effort public lookup; it does not require a user API key.
   const endpoint="https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=jp&q="+encodeURIComponent(address);
-  const res=await fetch(endpoint,{headers:{"Accept":"application/json"}});
+  const res=await fetchWithTimeout(endpoint,{headers:{"Accept":"application/json"}},5000);
   if(!res.ok) throw new Error("place lookup HTTP "+res.status);
   const data=await res.json();
   return (Array.isArray(data)?data:[]).filter(x=>x.name || x.display_name).map(x=>({
@@ -423,12 +432,18 @@ function selectPlaceCandidate(i){
 }
 async function enrichSharedData(url, text, initialTitle){
  const combined=[initialTitle,text].filter(Boolean).join("\n");
+ // まず共有時点で渡ってきた情報を即反映。外部通信待ちで画面を止めない。
  let fields=extractFields(combined);
  let title=initialTitle||"";
- let meta=null;
+ if(fields.address) document.getElementById("importAddress").value=fields.address;
+ if(fields.hours) document.getElementById("importHours").value=fields.hours;
+ if(fields.price) document.getElementById("importPrice").value=fields.price;
+ if(!document.getElementById("importMemo").value) document.getElementById("importMemo").value=combined;
+
  if(isTikTokUrl(url)){
+   setImportStatus("TikTokの情報を自動取得中…",true);
    try{
-     meta=await fetchTikTokOembed(url);
+     const meta=await fetchTikTokOembed(url);
      const oTitle=meta?.title||"";
      title=oTitle||title;
      const extra=[oTitle,meta?.author_name||"",text].filter(Boolean).join("\n");
@@ -440,40 +455,41 @@ async function enrichSharedData(url, text, initialTitle){
        document.getElementById("metaCard").style.display="block";
      }
      document.getElementById("nameCandidateNote").textContent=candidate?"（TikTokタイトルから候補を自動入力）":"";
+     if(fields.address) document.getElementById("importAddress").value=fields.address;
+     if(fields.hours) document.getElementById("importHours").value=fields.hours;
+     if(fields.price) document.getElementById("importPrice").value=fields.price;
      setImportStatus("TikTokの投稿情報を取得しました");
-   }catch(e){ setImportStatus("TikTokの投稿情報は取得できませんでした。URLはそのまま保存できます"); }
+   }catch(e){
+     setImportStatus("TikTokの自動取得は時間切れ。取得できた情報だけで続けられます");
+   }
  }else{
    setImportStatus("共有された情報を読み込みました",false);
  }
+
  if(title && !document.getElementById("importName").value) {
    const candidate=cleanCandidateTitle(title);
    if(candidate){document.getElementById("importName").value=candidate;document.getElementById("nameCandidateNote").textContent="（投稿タイトルから候補を自動入力）";}
  }
- if(fields.address) document.getElementById("importAddress").value=fields.address;
- if(fields.hours) document.getElementById("importHours").value=fields.hours;
- if(fields.price) document.getElementById("importPrice").value=fields.price;
- if(!document.getElementById("importMemo").value) document.getElementById("importMemo").value=combined;
- // New v7 step: use the successfully extracted address to find a named place.
+
+ // 住所からの店舗照合も別処理。こちらも5秒で打ち切るので画面を固めない。
  const address=document.getElementById("importAddress").value.trim();
  if(address){
+   setImportStatus("住所から店舗候補を確認中…",true);
    try{
      const candidates=await lookupPlaceByAddress(address);
      if(candidates.length){
        const current=document.getElementById("importName").value.trim();
-       // Prefer a place candidate when no reliable name came from TikTok.
-       if(!current || current==="店名未設定"){
-         showPlaceCandidates(candidates,address);
-         setImportStatus("住所から店舗候補を見つけました");
-       } else {
-         showPlaceCandidates(candidates,address);
-         setImportStatus("店舗名と住所を確認しました");
-       }
+       showPlaceCandidates(candidates,address);
+       if(current && current!=="店名未設定") setImportStatus("店舗名と住所を確認しました");
+       else setImportStatus("住所から店舗候補を見つけました");
      } else {
-       setImportStatus("住所は取得できました。店舗名の候補は見つかりませんでした");
+       setImportStatus("自動取得が完了しました。内容を確認して保存できます");
      }
    }catch(e){
-     setImportStatus("住所は取得できました。店舗名の自動照合は利用できませんでした");
+     setImportStatus("自動取得が完了しました。住所照合は利用できませんでした");
    }
+ }else{
+   setImportStatus("自動取得が完了しました。内容を確認して保存できます");
  }
 }
 function receiveSharedData(){
