@@ -7,7 +7,7 @@
   "theme_color": "#fffaf3",
   "description": "気になったお店を、忘れない。",
   "share_target": {
-    "action": "./index.html",
+    "action": "./share.html",
     "method": "GET",
     "params": {
       "title": "title",

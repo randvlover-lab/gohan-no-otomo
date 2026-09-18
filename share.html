@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ご飯のおとも</title>
+</head>
+<body>
+<script>
+(function(){
+  const p = new URLSearchParams(location.search);
+  const params = new URLSearchParams();
+  ["title","text","url"].forEach(k=>{
+    const v=p.get(k);
+    if(v) params.set(k,v);
+  });
+  location.replace("./index.html?share=1&"+params.toString());
+})();
+</script>
+</body>
+</html>

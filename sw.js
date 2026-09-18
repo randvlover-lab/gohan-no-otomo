@@ -1,5 +1,5 @@
-const CACHE="gohan-otoomo-v4";
-const ASSETS=["./","./index.html","./manifest.webmanifest"];
+const CACHE="gohan-otoomo-v5";
+const ASSETS=["./","./index.html","./manifest.webmanifest","./share.html"];
 
 self.addEventListener("install",event=>{
   event.waitUntil(
